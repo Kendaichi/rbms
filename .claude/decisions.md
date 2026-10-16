@@ -75,3 +75,36 @@
   → "Books of Account Guide".
 - **The source balance sheet is flagged "NOT balanced — check entries"** → the app must fix this, not
   replicate it. *Source:* monthly sheets' "Check" cell.
+
+## Milestone 9 — Enhanced RBMS (2026-10-16)
+- **Admin is a client-data app; storefront stays SSR.** The admin back-office reads a browser-side
+  **Zustand** cache (`lib/store/admin-store.ts`) hydrated once per session by the browser Supabase client
+  and kept live by **Supabase Realtime** (`components/admin/admin-data-provider.tsx`, one channel over all
+  admin tables). *Why:* the owner wanted navigation to not refetch and to support realtime; a provider in
+  `app/admin/layout.tsx` persists the cache + channel across tab navigations. **This reverses the admin
+  half of the earlier "standard SSR" decision** above; the storefront (public, SEO-ish, anon) stays SSR.
+  Mutations remain zod-validated Server Actions; Realtime pushes the change back into every open client's
+  store, so client lists no longer rely on `revalidatePath`.
+- **Dashboard/customer/inventory figures are recomputed client-side** from the cached base tables
+  (`lib/store/selectors.ts`), kept in lock-step with the SQL views, so they stay live and still match the
+  oracle. The heavy **Books reports stay SSR** over the SQL views (income statement/balance sheet/
+  depreciation/year) — only the Journal gained client CRUD; replicating the accounting views client-side
+  was judged too risky vs. the balanced-sheet oracle.
+- **Realtime enablement is a new append-only migration** (`…130000_realtime.sql`: publication +
+  `replica identity full`). *Why:* append-only rule; owner applies in SQL Editor. Without it, fetch-on-load
+  still works — only live push needs it.
+- **Ledger-safe deletes.** Orders are Cancelled (soft) or hard-deleted only with **no posted books entry**;
+  customers/batches/runs/transactions get **guarded** hard-delete (blocked when dependents exist). *Why:*
+  protect the journal/balance sheet from desync. Deleting an auto-posted transaction re-reconciles A/R.
+- **Order edits freeze financials after Pending.** kg/price/fee/customer editable only while `Pending`;
+  delivery details + notes always. *Why:* resolve-and-freeze — milled/delivered/posted figures must not shift.
+- **Charts are hand-rolled dependency-free SVG** (`components/charts/*`) on the validated status palette
+  (dataviz skill). *Why:* avoids a charting-lib peer-dependency with React 19 / Next 16 / Turbopack and
+  stays fully theme-aware. Status donut palette validated via the dataviz validator (distinct, CVD-separated).
+- **Logo = adaptive grain seal** (`components/brand/logo.tsx`): disc is `currentColor`, the rice grain is
+  negative space, so one component reads on cream / sage / dark / forest surfaces. *Why:* a filled two-tone
+  mark can't survive arbitrary backgrounds or one-colour; negative space + a gold accent ring does. Favicon
+  (`app/icon.svg`) is a simplified solid cut for 16 px. Built via the logo-design skill.
+- **Storefront follows the taste-skill one-motif direction** (rice grain) with the live price calculator as
+  the one interactive thing. *Follow-ups logged:* real field/palay photography to meet the imagery floor,
+  and the taste-skill inspect/motion loop.

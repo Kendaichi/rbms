@@ -46,3 +46,11 @@
 - Orders: 5 pending, 275 kg, ₱16,500 sales, ₱16,500 unpaid; palay on hand 4118 kg; palay-to-mill ≈443.5 kg.
 - Costing (4118 kg @ ₱22, recovery 0.62): pay-a-mill cost/kg ≈₱45.42, rice ≈2553 kg; own-miller ≈₱40.58.
 - Books (Oct 2026): COGS 91,396; net profit ≈−₱91,534.81; monthly depreciation ≈₱138.81.
+
+## Realtime (Milestone 9)
+- All admin tables (`orders, customers, palay_batches, milling_runs, transactions, accounts, ppe_items,
+  monthly_inventory, settings, products`) are in the `supabase_realtime` publication with
+  `replica identity full` (migration `20261016130000_realtime.sql`). The admin UI subscribes via the browser
+  client and caches rows in a Zustand store (`lib/store/`); Realtime enforces the same RLS as table reads, so
+  anon/customer sessions receive nothing. Dashboard/customer/inventory rollups are recomputed client-side in
+  `lib/store/selectors.ts` (kept in lock-step with the SQL views).

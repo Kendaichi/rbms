@@ -124,6 +124,212 @@ books entries when a posted order is Cancelled (currently manual). (`/admin/sett
 
 ---
 
+## 2026-10-16 — Post-M9 fixes: Realtime auth, Contact page, footer credit
+- **Realtime fix (root cause).** Admin tables are RLS staff-only, so Realtime only sends changes to an
+  **authenticated** socket. The provider subscribed on mount *before* the cookie session restored → the
+  socket joined as **anon** → zero changes (looked like "realtime is dead"; also blocked same-tab updates
+  since the UI reads only the cache). `components/admin/admin-data-provider.tsx` now `await getSession()` +
+  `supabase.realtime.setAuth(token)` **before** subscribing, re-auths on `onAuthStateChange`, and logs
+  `[RBMS realtime] subscription CHANNEL_ERROR/TIMED_OUT`. Owner to re-test after a hard refresh.
+- **Write safety net (done).** `lib/store/useCollection.ts` adds `backgroundRefetch`/`refetchCollections` —
+  a **no-skeleton** background refresh (updates rows in place, ignores errors). Every admin write calls it on
+  success (`refetchCollections("orders")`, etc. in order/customer/inventory/delivery forms + row actions), so
+  the acting tab reflects the change instantly even if its Realtime event is slow/dropped; Realtime still
+  drives live cross-tab updates.
+- **Contact / reseller supply.** New `app/(store)/contact/page.tsx` ("Reselling or buying in bulk?") — call/
+  text CTAs to **0949 700 2952** (`lib/contact.ts` holds the details; set `CONTACT.email` when the business
+  email exists and the mailto lights up automatically). Linked from the store nav, footer, landing CTA, and a
+  new **home-page "Supplying resellers & bulk buyers" section** (pitch + grain bullets + a "Get a reseller
+  quote" card with the tap-to-call number + Contact button).
+- **Footer credit:** "Website by **daggerbuilds**" → https://www.daggerbuilds.com (new tab) in the store footer.
+
+## 2026-10-16 — Milestone 9: Enhanced RBMS — BUILT (owner verification + 1 migration pending)
+> Plan + rationale: the "PLANNED" entry below and `.claude/decisions.md` → "Milestone 9". `npm run build`
+> + `npx eslint .` both clean (21 routes). Storefront, login and route-guards verified live; authenticated
+> admin + Realtime need the owner account and the new migration (owner-driven, like M2/M4).
+
+**OWNER ACTIONS (one-time):**
+1. **Apply `supabase/migrations/20261016130000_realtime.sql`** in the SQL Editor (enables Supabase Realtime
+   for the admin cache: publication + `replica identity full`). Without it, data still loads on first visit;
+   only live cross-tab updates need it. RLS already filters it to staff.
+2. Owner account (if not done): the M4 setup steps still apply (add user + promote to `owner`).
+
+**What shipped**
+- **Client data layer + Realtime (the backbone):** admin pages are now client components reading a **Zustand**
+  cache (`lib/store/{admin-store,useCollection,selectors,toast}.ts`) hydrated once and kept live by one
+  Realtime channel (`components/admin/admin-data-provider.tsx`, mounted in the persistent admin layout).
+  Navigating tabs no longer refetches; edits in one tab appear live in others. Server Actions still do the
+  writes. **Loading states:** `components/ui/skeleton.tsx` + `components/admin/skeletons.tsx`, a `DataState`
+  gate, and `app/admin/loading.tsx` + `app/(store)/loading.tsx`.
+- **Orders — full CRUD + visible actions (fixes the original complaint):** inline per-row **Mill / Deliver**
+  buttons + a kebab (mark milled/delivered, **undo milling / undo delivery** [added per owner], record
+  payment, edit, cancel/reopen, delete). **In-tab "New order"** form with customer-pick-or-create. Guarded
+  delete (posted→cancel-only); Pending-only financial edits. Status filter chips + search.
+  `app/admin/orders/*`, actions in `app/actions/admin.ts` (`createOrder/updateOrder/deleteOrder`, undo-aware
+  `updateOrderStatus`), `lib/validation/admin-order.ts`.
+- **Customers CRUD** (create/edit/guarded-delete; live rollups from orders), **Inventory** batch/run
+  **edit+delete** (guarded) as dialogs, **Books Journal** transaction **edit+delete** (auto-posted rows
+  delete=un-post + re-reconcile A/R), **Deliveries** inline Mill/Deliver quick actions.
+- **Dashboard — holistic:** KPI cards w/ sparkline, hand-rolled SVG charts (`components/charts/*`: sales
+  area, status donut on a dataviz-validated palette, top-customers + next-7 bars), a month **schedule
+  calendar** (`components/admin/schedule-calendar.tsx`, deliveries + mill-by, status dots, links), recent
+  orders, New-order. All derived from the live cache.
+- **Premium green/gold redesign (impeccable + taste-skill + dataviz):** new primitives — `Badge`, `Dialog`
+  (bottom-sheet on mobile), `DropdownMenu` (portal, container-escaping), `ResponsiveTable` (table → stacked
+  cards on phones), `ConfirmDialog`, `Toaster`, `Field`, `StatCard`, `PageHeader`. **Mobile-friendly:** admin
+  **drawer nav** (`admin-shell.tsx`; there was none before), responsive tables/grids, themed scrollbars/
+  selection/tabular-nums in `globals.css`. **Storefront** rebuilt on the taste-skill *one-motif* (rice grain)
+  direction with a **live price calculator** (`components/store/*`), forest-green hero, how-it-works/about/
+  faq/cta, premium footer.
+- **Logo — SVG identity (logo-design skill):** adaptive grain-seal `components/brand/logo.tsx`
+  (`LogoMark`/`LogoLockup`; currentColor disc + negative-space grain → reads on any surface) + deliverables
+  `public/logo-mark.svg`, `logo-reversed.svg`, `logo-mono.svg`, favicon `app/icon.svg` (+regenerated
+  `app/icon.png`). Wired into admin shell, store header/footer, login. Old `tab-icon.webp`/`logo.webp` now
+  unreferenced (safe to delete).
+
+**Verified (no creds):** `npm run build` + eslint clean; `/`, `/order`, `/track`, `/login`, `/icon.svg` → 200;
+all `/admin/*` → 307 `/login`. Headless-Chrome screenshots confirm the storefront (hero + working calculator)
+and login render with the new logo. **Fixed a hydration bug** the owner hit: the `Toaster` portal now renders
+client-only via `useSyncExternalStore` (was mismatching server null vs client portal).
+
+**Owner to verify after login + migration:** log in → create an order in Orders → inline Mill/Deliver →
+record payment → open a 2nd tab and watch it update **live** → undo delivery/milling → edit/guarded-delete
+across tabs → dashboard charts + calendar reflect changes → Books Journal edit/delete and balance sheet stays
+balanced → check the admin on a phone (drawer nav + card tables).
+
+**Follow-ups (optional):** storefront real field/palay photography (taste-skill imagery floor) + its inspect/
+motion loop; order **detail** page still uses the original `order-actions.tsx` (works, lighter styling);
+`supabase gen types` refresh; delete the orphaned `.webp` logo assets.
+
+## 2026-10-16 — Milestone 9: Enhanced RBMS — PLANNED (not yet built)
+> Full plan file: `~/.claude/plans/misty-wondering-truffle.md`. This entry is the canonical, detailed record.
+> Scope approved by owner via clarifying questions; recorded here before implementation per owner request.
+
+### Why (the gaps this addresses)
+1. **Order actions feel missing.** Mark-milled / mark-delivered / cancel / record-payment exist **only on the order
+   detail page** (`/admin/orders/[id]`), reached by clicking an order number. The Orders *tab* is a read-only table,
+   so from the tab it looks like there's nothing to act on.
+2. **Tabs are mostly read-only.** Customers/Deliveries are view-only; Inventory/Books can add but not edit/delete;
+   **orders can only be created from the public storefront**, never by staff in the back-office.
+3. **Dashboard is flat** (stat tiles only), UI is utilitarian, the **logo is a raster `.webp`**, and the admin is
+   **not usable on a phone** (sidebar is `hidden md:flex` with *no* mobile nav; every tab is a wide HTML table).
+
+### Owner-confirmed decisions (this session)
+- Redesign scope: **admin + storefront**. Direction: **premium, keep the forest-green/gold identity**.
+- Logo: **refresh into a clean SVG identity set** (mark + wordmark + reversed + favicon), keep rice/green/gold.
+- Deletes: **ledger-safe** — orders are Cancelled (soft) or hard-deleted only when they have **no posted books
+  entry**; customers/batches/runs/transactions get **guarded** hard-delete.
+- Data layer: **Zustand store + Supabase Realtime** (browser-side) so tab navigation reads from cache (instant, no
+  refetch on redirect) and rows update live. Mutations stay as server actions; Realtime pushes changes into the store.
+- Extra asks captured mid-session: **loading states/skeletons**, a **dashboard calendar**, **mobile-friendly** everywhere.
+- **New ADR to record**: reverses the *admin* half of the "standard SSR" decision — storefront stays SSR; **admin
+  becomes a client-data app** behind the existing server-side auth guard.
+
+### Architecture — client cache + realtime (backbone everything sits on)
+Admin list/detail pages become **client components** reading a Zustand store instead of fetching per request. Server
+`app/admin/layout.tsx` keeps auth (`getUser` + role check) and renders a new client **`AdminDataProvider`** around
+`children`; because a layout doesn't remount on child navigation, its Realtime channels + cache **persist across tab
+switches** (the "don't refetch on redirect" behavior requested).
+- **`lib/store/admin-store.ts`** — Zustand store, one entry per collection (`orders, customers, palayBatches,
+  millingRuns, transactions, accounts, ppeItems, monthlyInventory, settings, products`), each
+  `{ rows, status: 'idle'|'loading'|'ready'|'error', error }` + reducers (`setRows`, `upsertRow`, `removeRow`).
+- **`lib/store/useCollection.ts`** — hook returning a collection; if `status==='idle'` triggers a one-time fetch via
+  the **browser** client (`lib/supabase/client.ts` → `createClient()`, RLS-scoped). Cached after; Realtime refreshes.
+- **`components/admin/admin-data-provider.tsx`** — opens **one Realtime channel** on `postgres_changes`
+  (INSERT/UPDATE/DELETE) for all admin tables → `upsertRow`/`removeRow`. Tears down on unmount.
+- **Mutations**: keep existing server actions (validation + session); drop `revalidatePath` reliance for client lists
+  (Realtime updates every open client). Light optimistic `upsertRow` on the acting client; Realtime reconciles.
+- **Dashboard** derives from the same cached collections via selectors → instant + live.
+
+**Migration (append-only, new file) `supabase/migrations/2026……_realtime.sql`:** `alter publication supabase_realtime
+add table …` for the admin tables; `alter table … replica identity full` on mutable tables so UPDATE/DELETE payloads
+carry the row id. Realtime enforces RLS (non-staff receive nothing). **Owner applies it in the SQL Editor.** Without it,
+fetch-on-load still works; only live push needs it.
+
+**Loading states:** `components/ui/skeleton.tsx` + composed `TableSkeleton`/`CardSkeleton`/`ChartSkeleton`/`StatSkeleton`;
+client pages show skeletons while `loading`/`idle`, friendly empties when `ready`+empty, inline error+retry on `error`;
+route-level `app/admin/loading.tsx` + `app/(store)/loading.tsx`. Add `zustand` dependency.
+
+### Work by area
+**A. Orders — full CRUD + visible actions**
+- *Create in-tab:* "New order" form (modal/sheet; full-screen on mobile) — pick existing customer or new
+  (name/contact/barangay/address), kg, price/kg (prefill `settings`, editable), fulfillment, delivery
+  date/time-slot/address, delivery fee, notes. New `createOrder` action writes straight to `orders` (staff RLS;
+  **`orders_resolve()` trigger** auto-numbers ORD-### + freezes price/recovery/mill_by; `source='admin'`; no RPC).
+- *Inline row actions:* Mark milled / Mark delivered / Record payment / Cancel / Edit / Delete (reuse
+  `updateOrderStatus` + `recordPayment` in `app/actions/admin.ts`). Fixes "no functions in the tab." Detail page keeps
+  the fuller `OrderActions`.
+- *Edit:* financial fields (kg, price, fee, customer) editable **only while `Pending`**; delivery info/notes anytime
+  (`updateOrder`).
+- *Delete (guarded):* `deleteOrder` only when no `transactions.related_order_id`; else UI offers **Cancel**. Confirm dialog.
+- Validation: `lib/validation/admin-order.ts` + `lib/validation/customer.ts`.
+
+**B. Customers — full CRUD:** create/edit (`upsertCustomer`); list keeps `customer_summary` rollups but rows become
+actionable (edit / view orders / delete). `deleteCustomer` blocked if the customer has orders (offer keep/anonymise).
+
+**C. Inventory — add (exists) + edit/delete:** `updateBatch`/`deleteBatch` (block delete if linked milling runs or a
+posted `related_batch_id` txn), `updateMillingRun`/`deleteMillingRun` in `app/actions/inventory.ts`; row actions on both tables.
+
+**D. Books — add (exists) + delete/edit:** `deleteTransaction` (confirm; deleting an auto-posted row = un-posting, with
+warning) + `updateTransaction` for manual entries in `app/actions/books.ts`. Keep A/R reconcile (`lib/books/posting.ts`).
+
+**E. Deliveries — quick actions:** keep the schedule; add per-row Mark milled / Mark delivered.
+
+**F. Dashboard — holistic, charts + calendar**
+- KPI row (sales, collected, unpaid/utang, pending) as refined cards with trend sparklines.
+- Charts: hand-rolled dependency-free responsive SVG in `components/charts/` using existing `--chart-1..5` (dataviz
+  skill): `area` (sales/orders by month), `donut` (status mix), `bar` (top customers / deliveries next 7), inventory
+  palay-vs-rice bar. Aria-labelled, theme-aware, fed from cached collections.
+- **Calendar** `components/admin/schedule-calendar.tsx`: month grid plotting deliveries (`delivery_date`) + mill-by
+  dates, status-dotted, cells link to the order, today highlighted, Asia/Manila; built from the orders collection.
+- Recent-orders compact live table + "New order" button.
+
+**G. Redesign — premium green/gold (design skills):** apply **impeccable** to admin/dashboard/forms, **taste-skill** to
+storefront, **dataviz** to charts. Keep `app/globals.css` palette; raise execution. Shared primitives: use existing
+`components/ui/card.tsx`; add `badge`, `dialog`/sheet, `dropdown-menu`, `skeleton`, `separator`, a `ResponsiveTable`
+(follow repo's base-nova/Base-UI note — prefer native `<select>` + simple Base-UI popovers over base-nova Select).
+Consistent headers/rhythm, **lucide-react** icons (installed), subtle **tw-animate-css** motion (imported), refined
+`StatusBadge`, proper empty/error/loading states. Storefront: elevate hero/order/track, header/footer with new logo.
+
+**H. Mobile-friendly:** admin **mobile drawer nav** (top bar + hamburger `< md`; none today); `ResponsiveTable` → normal
+table `md+`, **stacked labeled cards on mobile** (Orders/Customers/Deliveries/Inventory/Books); responsive dashboard
+grids; full-width forms; modals → full-screen sheets on mobile; tap targets ≥ 40px. Verify at 375px incl. storefront.
+
+**I. Logo — SVG identity set (logo-design skill):** pipeline brief → concept → geometric SVG → optical refinement →
+test sheet → variants; keep rice-grain + green/gold. Deliver `public/logo.svg` (combination), `public/logo-mark.svg`,
+`public/logo-wordmark.svg`, `public/logo-reversed.svg`, favicon via **`app/icon.svg`** (replace 256-px `app/icon.png`),
+optional `app/apple-icon.png`. Update refs in `app/admin/layout.tsx`, `app/(store)/layout.tsx`, `app/(store)/page.tsx`,
+root metadata; retire `logo.webp`/`tab-icon.webp` after swap.
+
+**J. Settings/products (minor):** confirm Settings fits the new store/loading model; optionally expose product
+active/price inline (low priority).
+
+### Representative files
+- **New:** `lib/store/admin-store.ts`, `lib/store/useCollection.ts`, `components/admin/admin-data-provider.tsx`,
+  `components/ui/skeleton.tsx`, `components/admin/responsive-table.tsx`, `components/admin/schedule-calendar.tsx`,
+  `components/charts/{area,bar,donut,sparkline}.tsx`, `app/admin/loading.tsx`, `app/(store)/loading.tsx`,
+  `app/admin/orders/order-form.tsx` (+ customer picker), `lib/validation/{admin-order,customer}.ts`, the realtime
+  migration, SVG logo files.
+- **Modified (pattern — list pages → client + store + skeletons + row actions + responsive):**
+  `app/admin/{dashboard,orders,customers,deliveries,inventory,books}/…`, `components/admin/{admin-nav,status-badge}.tsx`,
+  `app/admin/layout.tsx`; `app/actions/{admin,inventory,books}.ts`; storefront + `globals.css` polish.
+- **Docs (session-end):** new ADR in `.claude/decisions.md` (client cache + realtime); update `.claude/data-model.md`
+  (realtime publication) + this `handoff.md`.
+
+### Verification
+- `npm run build` + `npm run lint` clean after each phase.
+- *Self-verifiable (no creds):* drive storefront (place→track) + `/login` at desktop **and 375px** via Playwright;
+  screenshot new logo, redesigned pages, mobile drawer, loading skeletons; confirm all `/admin/*` still 307→`/login`
+  unauthenticated.
+- *Needs owner account + realtime migration applied:* log in → create order in Orders tab → inline mark
+  milled/delivered → record payment → watch a 2nd tab update **live** → edit/delete guarded paths → confirm dashboard
+  charts/calendar + Books balance. Checklist to be provided; if owner shares a throwaway login, drive end-to-end via Playwright.
+
+### Risks / tradeoffs
+- Client-data pivot trades SSR first-paint for cached+live navigation; needs realtime migration for live push (recorded
+  as ADR). Hand-rolled SVG charts avoid React-19/Turbopack peer-dep risk and stay themeable. Large scope → land in phase
+  order A→I, build green at each step, update `handoff.md` as it goes.
+
 ## 2026-10-16 — Git initialized + Settings page built
 - **Git**: `git init -b main` with remote `origin` = `https://github.com/Kendaichi/rbms.git`. **No commits
   made** (owner will commit). `.gitignore` fixed — `!.env.example` now tracked (M1 chore cleared);

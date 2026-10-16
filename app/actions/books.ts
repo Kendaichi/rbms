@@ -260,3 +260,66 @@ export async function postBatchCosts(batchId: string): Promise<ActionResult> {
   revalidateBooks();
   return { ok: true };
 }
+
+// --------------------------------------------------------------------------
+// Edit a manual journal entry. Auto-posted rows (linked to an order or batch)
+// are immutable here — delete to un-post them instead.
+// --------------------------------------------------------------------------
+export async function updateTransaction(
+  id: string,
+  values: unknown,
+): Promise<FormState> {
+  const parsed = transactionSchema.safeParse(values);
+  if (!parsed.success) {
+    return {
+      error: "Please fix the highlighted fields.",
+      fieldErrors: issuesToMap(parsed.error.issues),
+    };
+  }
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("transactions")
+    .select("related_order_id, related_batch_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { error: "Entry not found." };
+  if (row.related_order_id || row.related_batch_id) {
+    return { error: "Auto-posted entries can't be edited — delete to un-post." };
+  }
+  const d = parsed.data;
+  const { error } = await supabase
+    .from("transactions")
+    .update({
+      txn_date: d.txn_date,
+      account_id: d.account_id,
+      particulars: d.particulars,
+      amount: d.amount,
+      txn_no: d.txn_no || null,
+      ref: d.ref || null,
+    })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  revalidateBooks();
+  return { ok: true };
+}
+
+// --------------------------------------------------------------------------
+// Delete a journal entry. If it was an order's Sales / A-R row, re-reconcile
+// that order's receivable afterward (deleting the Sales row un-posts the sale)
+// so the balance sheet stays consistent.
+// --------------------------------------------------------------------------
+export async function deleteTransaction(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("transactions")
+    .select("related_order_id")
+    .eq("id", id)
+    .maybeSingle();
+  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  if (error) return { error: error.message };
+  if (row?.related_order_id) {
+    await reconcileOrderReceivable(supabase, row.related_order_id);
+  }
+  revalidateBooks();
+  return { ok: true };
+}

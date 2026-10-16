@@ -5,6 +5,7 @@ import {
   PostOrdersPanel,
   PostBatchesPanel,
 } from "./journal-forms";
+import { TransactionRowActions } from "./transaction-row-actions";
 
 type Txn = {
   id: string;
@@ -13,6 +14,7 @@ type Txn = {
   particulars: string | null;
   amount: number;
   ref: string | null;
+  account_id: string;
   related_order_id: string | null;
   related_batch_id: string | null;
   accounts: { title: string; category: string; cash_direction: string } | null;
@@ -60,7 +62,7 @@ export default async function JournalPage() {
     supabase
       .from("transactions")
       .select(
-        "id, txn_date, txn_no, particulars, amount, ref, related_order_id, related_batch_id, accounts(title, category, cash_direction)",
+        "id, txn_date, txn_no, particulars, amount, ref, account_id, related_order_id, related_batch_id, accounts(title, category, cash_direction)",
       )
       .order("txn_date", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -201,11 +203,13 @@ export default async function JournalPage() {
                 <th className="px-3 py-2 font-medium">Account</th>
                 <th className="px-3 py-2 text-right font-medium">Cash in</th>
                 <th className="px-3 py-2 text-right font-medium">Cash out</th>
+                <th className="w-10 px-2 py-2" />
               </tr>
             </thead>
             <tbody>
               {txns.map((t) => {
                 const isIn = t.accounts?.cash_direction === "IN";
+                const isAuto = !!(t.related_order_id || t.related_batch_id);
                 return (
                   <tr key={t.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-3 py-2 whitespace-nowrap">{t.txn_date}</td>
@@ -220,13 +224,28 @@ export default async function JournalPage() {
                     <td className="px-3 py-2 text-right text-destructive">
                       {!isIn ? peso(n(t.amount)) : ""}
                     </td>
+                    <td className="px-2 py-1 text-right">
+                      <TransactionRowActions
+                        txn={{
+                          id: t.id,
+                          txn_date: t.txn_date,
+                          txn_no: t.txn_no,
+                          particulars: t.particulars,
+                          amount: n(t.amount),
+                          ref: t.ref,
+                          account_id: t.account_id,
+                          isAuto,
+                        }}
+                        accounts={accounts}
+                      />
+                    </td>
                   </tr>
                 );
               })}
               {txns.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-3 py-10 text-center text-muted-foreground"
                   >
                     No transactions recorded yet.
@@ -246,6 +265,7 @@ export default async function JournalPage() {
                   <td className="px-3 py-2 text-right text-destructive">
                     {peso(totalOut)}
                   </td>
+                  <td className="px-2 py-2" />
                 </tr>
               </tfoot>
             )}

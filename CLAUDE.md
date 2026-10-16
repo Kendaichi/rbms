@@ -46,6 +46,14 @@ supabase/
   books refinements landed (`lib/books/posting.ts`: A/R reconciled to order balance on post + on payment;
   delivery fee → Other Income). **Remaining: owner-driven deploy** to Vercel + Supabase Cloud (git init +
   GitHub, Vercel env vars, Supabase auth URL allow-list) — runbook in `handoff.md` NEXT UP.
+- **Milestone 9 — Enhanced RBMS BUILT (owner verification + 1 migration pending)** — admin moved to a
+  **client Zustand cache + Supabase Realtime** (storefront stays SSR); full ledger-safe **CRUD on every tab**
+  (incl. in-tab order create + inline Mill/Deliver + undo); **dashboard** with hand-rolled SVG charts +
+  schedule calendar; **premium green/gold redesign** + mobile drawer nav + responsive tables + loading
+  skeletons; **storefront** rebuilt (grain motif + live price calculator); **SVG logo identity**
+  (`components/brand/logo.tsx`). `npm run build` + eslint clean. **Apply
+  `supabase/migrations/20261016130000_realtime.sql`** for live updates. See `.claude/decisions.md` →
+  "Milestone 9" and `handoff.md` (newest entry).
 - Full plan: `~/.claude/plans/hey-in-my-working-scalable-dream.md`; latest: `handoff.md`.
 
 ## Rules
@@ -72,6 +80,17 @@ supabase/
   unpaid balances (utang) are allowed.
 - **The spreadsheets are the oracle.** When a calc result is in doubt, match the sheet's number
   (see Verification in the plan).
+- **Admin data = client Zustand cache + Realtime; storefront = SSR.** Admin list/detail pages are client
+  components reading `lib/store/` (hydrated once, kept live by `AdminDataProvider`). Fetch flat rows (no
+  joins) and resolve relations from their own cached collection so Realtime patches never drop data. Writes
+  stay Server Actions; don't depend on `revalidatePath` for client lists. Dashboard/customer/inventory
+  rollups are recomputed in `lib/store/selectors.ts` — keep them in lock-step with the SQL views.
+- **Portals render client-only.** A `createPortal` component must gate on client mount (via
+  `useSyncExternalStore`, not a `typeof document` check at module scope) or it hydration-mismatches
+  (server renders nothing, client renders the portal). See `components/ui/toaster.tsx`.
+- **Ledger-safe deletes + frozen financials.** Never hard-delete an order/batch with a posted books row
+  (cancel instead); order kg/price/fee/customer are editable only while `Pending`. Deleting an auto-posted
+  transaction re-reconciles A/R. `updateOrderStatus` clears `delivered_on`/`milled_on` on undo.
 
 ## Session End
 - After every change, append a dated entry to `handoff.md` (newest-first).

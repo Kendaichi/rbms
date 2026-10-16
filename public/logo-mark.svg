@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Freshly Milled Rice">
+  <circle cx="128" cy="128" r="124" fill="#2D4320"/>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#EBB21F" stroke-width="6"/>
+  <!-- rice grain -->
+  <path d="M128 74 C 157 110, 157 170, 128 192 C 99 170, 99 110, 128 74 Z" fill="#FAF8EF"/>
+  <!-- mill-split crease (the ownable detail) -->
+  <path d="M128 96 L128 178" stroke="#2D4320" stroke-width="7" stroke-linecap="round"/>
+  <!-- fresh sprout -->
+  <path d="M128 74 C 128 58, 134 50, 146 46" fill="none" stroke="#EBB21F" stroke-width="7" stroke-linecap="round"/>
+  <path d="M146 46 C 139 45, 133 47, 130 53 C 137 55, 143 53, 146 46 Z" fill="#EBB21F"/>
+</svg>

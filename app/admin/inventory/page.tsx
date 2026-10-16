@@ -1,186 +1,216 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useMemo, useState } from "react";
+import { Plus, Pencil, Trash2, Wheat, Package } from "lucide-react";
+import { useCollection, refetchCollections } from "@/lib/store/useCollection";
+import { inventoryStats } from "@/lib/store/selectors";
+import type { Row } from "@/lib/store/admin-store";
+import type { OrderRow } from "@/lib/store/selectors";
 import { peso, kg } from "@/lib/format";
-import { AddBatchForm, AddMillingForm } from "./inventory-forms";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatCard } from "@/components/admin/stat-card";
+import { DataState } from "@/components/admin/data-state";
+import { TableSkeleton, StatRowSkeleton } from "@/components/admin/skeletons";
+import { ResponsiveTable, type Column } from "@/components/admin/responsive-table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
+import { deleteBatch, deleteMilling } from "@/app/actions/inventory";
+import { toast } from "@/lib/store/toast";
+import { BatchForm, MillingForm } from "./inventory-forms";
 
-type Batch = {
-  id: string;
-  purchase_date: string;
-  supplier: string | null;
-  kg_purchased: number;
-  price_per_kg: number;
-  milling_method: string;
-  total_batch_cost: number;
-  expected_rice_kg: number;
-  cost_per_kg_rice: number;
-};
-type Run = {
-  id: string;
-  run_date: string;
-  palay_kg_milled: number;
-  rice_kg_produced: number;
-  notes: string | null;
-};
+type BatchRow = Row & { id: string };
+type RunRow = Row & { id: string };
+const n = (v: unknown) => Number(v ?? 0);
 
-function n(v: unknown) {
-  return Number(v ?? 0);
-}
+export default function InventoryPage() {
+  const batches = useCollection<BatchRow>("palay_batches");
+  const runs = useCollection<RunRow>("milling_runs");
+  const orders = useCollection<OrderRow>("orders");
 
-function Tile({
-  label,
-  value,
-  big,
-}: {
-  label: string;
-  value: string;
-  big?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p
-        className={
-          big
-            ? "mt-1 text-2xl font-semibold text-primary"
-            : "mt-1 text-xl font-semibold"
-        }
-      >
-        {value}
-      </p>
-    </div>
+  const [batchForm, setBatchForm] = useState<{ open: boolean; row: BatchRow | null }>({ open: false, row: null });
+  const [millForm, setMillForm] = useState<{ open: boolean; row: RunRow | null }>({ open: false, row: null });
+  const [delBatch, setDelBatch] = useState<BatchRow | null>(null);
+  const [delRun, setDelRun] = useState<RunRow | null>(null);
+
+  const stats = useMemo(
+    () => inventoryStats(batches.rows, runs.rows, orders.rows),
+    [batches.rows, runs.rows, orders.rows],
   );
-}
 
-export default async function InventoryPage() {
-  const supabase = await createClient();
-  const [{ data: inv }, { data: batchesData }, { data: runsData }] =
-    await Promise.all([
-      supabase.from("inventory_summary").select("*").maybeSingle(),
-      supabase
-        .from("palay_batches")
-        .select(
-          "id, purchase_date, supplier, kg_purchased, price_per_kg, milling_method, total_batch_cost, expected_rice_kg, cost_per_kg_rice",
-        )
-        .order("purchase_date", { ascending: false }),
-      supabase
-        .from("milling_runs")
-        .select("id, run_date, palay_kg_milled, rice_kg_produced, notes")
-        .order("run_date", { ascending: false }),
-    ]);
+  const batchOptions = useMemo(
+    () =>
+      batches.rows.map((b) => ({
+        value: b.id,
+        label: `${String(b.purchase_date ?? "")} · ${kg(n(b.kg_purchased))}`,
+      })),
+    [batches.rows],
+  );
 
-  const batches = (batchesData ?? []) as unknown as Batch[];
-  const runs = (runsData ?? []) as unknown as Run[];
-  const batchOptions = batches.map((b) => ({
-    value: b.id,
-    label: `${b.purchase_date} · ${kg(n(b.kg_purchased))}`,
-  }));
+  const batchCols: Column<BatchRow>[] = [
+    { key: "date", header: "Date", primary: true, cell: (b) => String(b.purchase_date ?? "—") },
+    { key: "supplier", header: "Supplier", cell: (b) => String(b.supplier ?? "—") },
+    { key: "palay", header: "Palay kg", align: "right", cell: (b) => kg(n(b.kg_purchased)) },
+    { key: "price", header: "Price/kg", align: "right", cell: (b) => peso(n(b.price_per_kg)) },
+    {
+      key: "method",
+      header: "Method",
+      cell: (b) => (
+        <Badge variant="muted" className="font-normal">
+          {b.milling_method === "own" ? "Own miller" : "Rice mill"}
+        </Badge>
+      ),
+    },
+    { key: "cost", header: "Batch cost", align: "right", cell: (b) => peso(n(b.total_batch_cost)) },
+    { key: "rice", header: "Exp. rice", align: "right", cell: (b) => kg(n(b.expected_rice_kg)) },
+    { key: "crice", header: "Cost/kg rice", align: "right", cell: (b) => peso(n(b.cost_per_kg_rice)) },
+  ];
+
+  const runCols: Column<RunRow>[] = [
+    { key: "date", header: "Date", primary: true, cell: (r) => String(r.run_date ?? "—") },
+    { key: "palay", header: "Palay milled", align: "right", cell: (r) => kg(n(r.palay_kg_milled)) },
+    { key: "rice", header: "Rice produced", align: "right", cell: (r) => kg(n(r.rice_kg_produced)) },
+    { key: "notes", header: "Notes", cell: (r) => String(r.notes ?? "—") },
+  ];
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
-        <p className="text-sm text-muted-foreground">
-          Palay stock, batches and milling runs.
-        </p>
-      </div>
+      <PageHeader title="Inventory" description="Palay stock, batches and milling runs — live.">
+        <Button variant="outline" onClick={() => setMillForm({ open: true, row: null })}>
+          <Wheat className="size-4" />
+          Record milling
+        </Button>
+        <Button onClick={() => setBatchForm({ open: true, row: null })}>
+          <Plus className="size-4" />
+          Add batch
+        </Button>
+      </PageHeader>
 
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Tile label="Palay on hand" value={kg(n(inv?.palay_on_hand))} big />
-        <Tile label="Rice on hand" value={kg(n(inv?.rice_on_hand))} big />
-        <Tile label="Palay bought" value={kg(n(inv?.palay_bought))} />
-        <Tile label="Palay milled" value={kg(n(inv?.palay_milled))} />
-        <Tile label="Rice milled" value={kg(n(inv?.rice_milled))} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold">Add palay batch</h2>
-          <div className="rounded-xl border bg-card p-4">
-            <AddBatchForm />
-          </div>
-        </section>
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold">Record milling run</h2>
-          <div className="rounded-xl border bg-card p-4">
-            <AddMillingForm batches={batchOptions} />
-          </div>
-        </section>
-      </div>
+      <DataState
+        loading={batches.loading || runs.loading}
+        error={batches.error ?? runs.error}
+        onRetry={() => {
+          batches.refetch();
+          runs.refetch();
+        }}
+        skeleton={<StatRowSkeleton count={5} />}
+      >
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCard label="Palay on hand" value={kg(stats.palay_on_hand)} tone="money" icon={Package} />
+          <StatCard label="Rice on hand" value={kg(stats.rice_on_hand)} tone="money" icon={Wheat} />
+          <StatCard label="Palay bought" value={kg(stats.palay_bought)} />
+          <StatCard label="Palay milled" value={kg(stats.palay_milled)} />
+          <StatCard label="Rice milled" value={kg(stats.rice_milled)} />
+        </div>
+      </DataState>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Palay batches</h2>
-        <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2 font-medium">Supplier</th>
-                <th className="px-3 py-2 text-right font-medium">Palay kg</th>
-                <th className="px-3 py-2 text-right font-medium">Price/kg</th>
-                <th className="px-3 py-2 font-medium">Method</th>
-                <th className="px-3 py-2 text-right font-medium">Batch cost</th>
-                <th className="px-3 py-2 text-right font-medium">Exp. rice</th>
-                <th className="px-3 py-2 text-right font-medium">Cost/kg rice</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batches.map((b) => (
-                <tr key={b.id} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="px-3 py-2">{b.purchase_date}</td>
-                  <td className="px-3 py-2">{b.supplier ?? "—"}</td>
-                  <td className="px-3 py-2 text-right">{kg(n(b.kg_purchased))}</td>
-                  <td className="px-3 py-2 text-right">{peso(n(b.price_per_kg))}</td>
-                  <td className="px-3 py-2">
-                    {b.milling_method === "own" ? "Own miller" : "Rice mill"}
-                  </td>
-                  <td className="px-3 py-2 text-right">{peso(n(b.total_batch_cost))}</td>
-                  <td className="px-3 py-2 text-right">{kg(n(b.expected_rice_kg))}</td>
-                  <td className="px-3 py-2 text-right">{peso(n(b.cost_per_kg_rice))}</td>
-                </tr>
-              ))}
-              {batches.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                    No palay batches yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataState
+          loading={batches.loading}
+          error={batches.error}
+          onRetry={batches.refetch}
+          skeleton={<TableSkeleton rows={4} cols={6} />}
+        >
+          <ResponsiveTable
+            columns={batchCols}
+            rows={batches.rows}
+            actions={(b) => (
+              <DropdownMenu>
+                <MenuItem icon={Pencil} onSelect={() => setBatchForm({ open: true, row: b })}>
+                  Edit
+                </MenuItem>
+                <MenuItem icon={Trash2} variant="destructive" onSelect={() => setDelBatch(b)}>
+                  Delete
+                </MenuItem>
+              </DropdownMenu>
+            )}
+            empty={<p className="text-sm text-muted-foreground">No palay batches yet.</p>}
+          />
+        </DataState>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Milling runs</h2>
-        <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2 text-right font-medium">Palay milled</th>
-                <th className="px-3 py-2 text-right font-medium">Rice produced</th>
-                <th className="px-3 py-2 font-medium">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((r) => (
-                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="px-3 py-2">{r.run_date}</td>
-                  <td className="px-3 py-2 text-right">{kg(n(r.palay_kg_milled))}</td>
-                  <td className="px-3 py-2 text-right">{kg(n(r.rice_kg_produced))}</td>
-                  <td className="px-3 py-2">{r.notes ?? "—"}</td>
-                </tr>
-              ))}
-              {runs.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                    No milling runs recorded yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataState
+          loading={runs.loading}
+          error={runs.error}
+          onRetry={runs.refetch}
+          skeleton={<TableSkeleton rows={3} cols={4} />}
+        >
+          <ResponsiveTable
+            columns={runCols}
+            rows={runs.rows}
+            actions={(r) => (
+              <DropdownMenu>
+                <MenuItem icon={Pencil} onSelect={() => setMillForm({ open: true, row: r })}>
+                  Edit
+                </MenuItem>
+                <MenuItem icon={Trash2} variant="destructive" onSelect={() => setDelRun(r)}>
+                  Delete
+                </MenuItem>
+              </DropdownMenu>
+            )}
+            empty={<p className="text-sm text-muted-foreground">No milling runs recorded yet.</p>}
+          />
+        </DataState>
       </section>
+
+      {/* Dialogs */}
+      {batchForm.open && (
+        <BatchForm
+          open
+          onClose={() => setBatchForm({ open: false, row: null })}
+          batch={batchForm.row}
+        />
+      )}
+      {millForm.open && (
+        <MillingForm
+          open
+          onClose={() => setMillForm({ open: false, row: null })}
+          batches={batchOptions}
+          run={millForm.row}
+        />
+      )}
+      {delBatch && (
+        <ConfirmDialog
+          open
+          onClose={() => setDelBatch(null)}
+          title="Delete palay batch?"
+          destructive
+          confirmLabel="Delete batch"
+          body="Batches linked to a milling run or posted to the books can't be deleted."
+          onConfirm={async () => {
+            const r = await deleteBatch(delBatch.id);
+            if (r.error) {
+              toast.error(r.error);
+            } else {
+              toast.success("Batch deleted");
+              refetchCollections("palay_batches");
+            }
+          }}
+        />
+      )}
+      {delRun && (
+        <ConfirmDialog
+          open
+          onClose={() => setDelRun(null)}
+          title="Delete milling run?"
+          destructive
+          confirmLabel="Delete run"
+          body="This removes the run and updates palay/rice on hand."
+          onConfirm={async () => {
+            const r = await deleteMilling(delRun.id);
+            if (r.error) {
+              toast.error(r.error);
+            } else {
+              toast.success("Milling run deleted");
+              refetchCollections("milling_runs");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

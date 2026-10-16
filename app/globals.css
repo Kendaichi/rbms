@@ -85,6 +85,13 @@
   --chart-4: #a9b06b; /* olive */
   --chart-5: #c98a1a; /* amber */
 
+  /* Order-status categorical palette (dataviz-validated for the donut: distinct
+     hues, CVD-separated, labelled). Light-mode steps. */
+  --status-pending: #e0a100;
+  --status-milled: #3b82c4;
+  --status-delivered: #2f8f5b;
+  --status-cancelled: #c0392b;
+
   --sidebar: #f3f1e5;
   --sidebar-foreground: #1f2a16;
   --sidebar-primary: #2d4320;
@@ -126,6 +133,13 @@
   --chart-4: #a9b06b;
   --chart-5: #d99a2a;
 
+  /* Order-status palette — dark-mode steps (lighter, re-separated for the dark
+     chart surface). */
+  --status-pending: #d9a21c;
+  --status-milled: #5a9bd4;
+  --status-delivered: #57a06e;
+  --status-cancelled: #e0675c;
+
   --sidebar: #1a2113;
   --sidebar-foreground: #f1efe2;
   --sidebar-primary: #6e9a4b;
@@ -142,8 +156,42 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-sans;
+  }
+
+  /* Browser surfaces themed from the palette — the cheap signal a page was
+     built, not assembled. */
+  ::selection {
+    background-color: color-mix(in oklch, var(--primary) 24%, transparent);
+    color: var(--foreground);
+  }
+  /* Tabular figures for all numeric/data UI so columns align. */
+  table,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Subtle, on-brand scrollbars for the scrolling surfaces (sidebar, menus,
+     tables). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent)
+      transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--foreground) 20%, transparent);
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--foreground) 34%, transparent);
   }
 }

@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import { submitOrder, type SubmitState } from "@/app/actions/orders";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,18 +20,24 @@ function minDeliveryDate() {
   return d.toISOString().slice(0, 10);
 }
 
-export function OrderForm({ pricePerKg }: { pricePerKg: number }) {
+export function OrderForm({
+  pricePerKg,
+  defaultKg = 25,
+}: {
+  pricePerKg: number;
+  defaultKg?: number;
+}) {
   const [state, action, pending] = useActionState(submitOrder, initialState);
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">(
     "delivery",
   );
-  const [kgValue, setKgValue] = useState("25");
+  const [kgValue, setKgValue] = useState(String(defaultKg));
 
   if (state.ok && state.orderNo) {
     return (
-      <div className="rounded-xl border bg-card p-6 text-center">
-        <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-primary/10 text-xl text-primary">
-          ✓
+      <div className="rounded-2xl bg-secondary p-8 text-center text-secondary-foreground">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Check className="size-6" />
         </div>
         <h2 className="mt-3 text-lg font-semibold">Order placed</h2>
         <p className="mt-1 text-sm text-muted-foreground">

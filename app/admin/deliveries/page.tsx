@@ -1,154 +1,143 @@
+"use client";
+
+import { useMemo } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { useCollection } from "@/lib/store/useCollection";
+import type { OrderRow, CustomerRow } from "@/lib/store/selectors";
+import { manilaToday, addDays } from "@/lib/date";
 import { kg } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatCard } from "@/components/admin/stat-card";
+import { DataState } from "@/components/admin/data-state";
+import { TableSkeleton, StatRowSkeleton } from "@/components/admin/skeletons";
+import { ResponsiveTable, type Column } from "@/components/admin/responsive-table";
+import { Badge } from "@/components/ui/badge";
+import { DeliveryRowActions } from "./delivery-row-actions";
 
-type Row = {
-  id: string;
-  order_no: string;
-  delivery_date: string;
-  time_slot: string | null;
-  mill_by: string | null;
-  status: string;
-  kg_ordered: number;
-  customers: { name: string; contact_no: string | null } | null;
+const alertVariant: Record<string, "danger" | "warning" | "secondary" | "muted"> = {
+  Overdue: "danger",
+  Today: "warning",
+  Tomorrow: "secondary",
+  Upcoming: "muted",
 };
 
-function manilaToday() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-}
-function addDays(iso: string, n: number) {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+export default function DeliveriesPage() {
+  const orders = useCollection<OrderRow>("orders");
+  const customers = useCollection<CustomerRow>("customers");
 
-const alertStyles: Record<string, string> = {
-  Overdue: "bg-destructive/10 text-destructive",
-  Today: "bg-brand-gold/15 text-brand-gold",
-  Tomorrow: "bg-secondary text-secondary-foreground",
-  Upcoming: "bg-muted text-muted-foreground",
-};
-
-export default async function DeliveriesPage() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("orders")
-    .select(
-      "id, order_no, delivery_date, time_slot, mill_by, status, kg_ordered, customers(name, contact_no)",
-    )
-    .not("delivery_date", "is", null)
-    .not("status", "in", "(Delivered,Cancelled)")
-    .order("delivery_date", { ascending: true });
-
-  const rows = (data ?? []) as unknown as Row[];
   const today = manilaToday();
   const tomorrow = addDays(today, 1);
   const plus7 = addDays(today, 7);
 
-  const counts = {
-    today: rows.filter((r) => r.delivery_date === today).length,
-    tomorrow: rows.filter((r) => r.delivery_date === tomorrow).length,
-    next7: rows.filter((r) => r.delivery_date >= today && r.delivery_date <= plus7)
-      .length,
-    overdue: rows.filter((r) => r.delivery_date < today).length,
-  };
+  const nameOf = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of customers.rows) m.set(c.id, c.name);
+    return m;
+  }, [customers.rows]);
+
+  const rows = useMemo(
+    () =>
+      orders.rows
+        .filter(
+          (o) =>
+            o.delivery_date &&
+            o.status !== "Delivered" &&
+            o.status !== "Cancelled",
+        )
+        .sort((a, b) => String(a.delivery_date).localeCompare(String(b.delivery_date))),
+    [orders.rows],
+  );
 
   const alertFor = (d: string) =>
     d < today ? "Overdue" : d === today ? "Today" : d === tomorrow ? "Tomorrow" : "Upcoming";
 
+  const counts = {
+    today: rows.filter((r) => r.delivery_date === today).length,
+    tomorrow: rows.filter((r) => r.delivery_date === tomorrow).length,
+    next7: rows.filter(
+      (r) => String(r.delivery_date) >= today && String(r.delivery_date) <= plus7,
+    ).length,
+    overdue: rows.filter((r) => String(r.delivery_date) < today).length,
+  };
+
+  const columns: Column<OrderRow>[] = [
+    {
+      key: "date",
+      header: "Date",
+      primary: true,
+      cell: (r) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{r.delivery_date}</span>
+          <Badge variant={alertVariant[alertFor(String(r.delivery_date))]} className="font-normal">
+            {alertFor(String(r.delivery_date))}
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      key: "order",
+      header: "Order",
+      cell: (r) => (
+        <Link href={`/admin/orders/${r.id}`} className="font-medium text-primary hover:underline">
+          {r.order_no}
+        </Link>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      cell: (r) => (r.customer_id ? nameOf.get(r.customer_id) ?? "—" : "—"),
+    },
+    { key: "kg", header: "Kg", align: "right", cell: (r) => kg(Number(r.kg_ordered)) },
+    { key: "slot", header: "Time slot", cell: (r) => r.time_slot ?? "—" },
+    { key: "mill", header: "Mill by", cell: (r) => r.mill_by ?? "—" },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Delivery schedule</h1>
-        <p className="text-sm text-muted-foreground">
-          Orders with a delivery date that aren&rsquo;t delivered or cancelled yet.
-        </p>
-      </div>
+      <PageHeader
+        title="Delivery schedule"
+        description="Orders with a delivery date that aren't delivered or cancelled yet."
+      />
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        {[
-          { l: "Today", v: counts.today },
-          { l: "Tomorrow", v: counts.tomorrow },
-          { l: "Next 7 days", v: counts.next7 },
-          { l: "Overdue", v: counts.overdue, warn: true },
-        ].map((s) => (
-          <div key={s.l} className="rounded-xl border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{s.l}</p>
-            <p
-              className={cn(
-                "mt-1 text-2xl font-semibold",
-                s.warn && s.v > 0 && "text-destructive",
-              )}
-            >
-              {s.v}
-            </p>
-          </div>
-        ))}
-      </div>
+      <DataState
+        loading={orders.loading}
+        error={orders.error}
+        onRetry={orders.refetch}
+        skeleton={<StatRowSkeleton />}
+      >
+        <div className="grid gap-3 sm:grid-cols-4">
+          <StatCard label="Today" value={String(counts.today)} />
+          <StatCard label="Tomorrow" value={String(counts.tomorrow)} />
+          <StatCard label="Next 7 days" value={String(counts.next7)} />
+          <StatCard
+            label="Overdue"
+            value={String(counts.overdue)}
+            tone={counts.overdue > 0 ? "warn" : "default"}
+          />
+        </div>
+      </DataState>
 
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Date</th>
-              <th className="px-3 py-2 font-medium">When</th>
-              <th className="px-3 py-2 font-medium">Order</th>
-              <th className="px-3 py-2 font-medium">Customer</th>
-              <th className="px-3 py-2 text-right font-medium">Kg</th>
-              <th className="px-3 py-2 font-medium">Time slot</th>
-              <th className="px-3 py-2 font-medium">Mill by</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const a = alertFor(r.delivery_date);
-              return (
-                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="px-3 py-2">{r.delivery_date}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-                        alertStyles[a],
-                      )}
-                    >
-                      {a}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/admin/orders/${r.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {r.order_no}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">{r.customers?.name ?? "—"}</td>
-                  <td className="px-3 py-2 text-right">{kg(Number(r.kg_ordered))}</td>
-                  <td className="px-3 py-2">{r.time_slot ?? "—"}</td>
-                  <td className="px-3 py-2">{r.mill_by ?? "—"}</td>
-                  <td className="px-3 py-2">
-                    <StatusBadge value={r.status} />
-                  </td>
-                </tr>
-              );
-            })}
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-10 text-center text-muted-foreground"
-                >
-                  No scheduled deliveries.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataState
+        loading={orders.loading}
+        error={orders.error}
+        onRetry={orders.refetch}
+        skeleton={<TableSkeleton rows={5} cols={6} />}
+      >
+        <ResponsiveTable
+          columns={columns}
+          rows={rows}
+          actions={(r) => <DeliveryRowActions order={r} />}
+          empty={
+            <div className="space-y-2">
+              <p className="text-sm font-medium">No scheduled deliveries</p>
+              <p className="text-sm text-muted-foreground">
+                Orders with a delivery date appear here until they&rsquo;re delivered.
+              </p>
+            </div>
+          }
+        />
+      </DataState>
     </div>
   );
 }

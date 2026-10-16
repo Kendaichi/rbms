@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Freshly Milled Rice">
+  <circle cx="128" cy="128" r="128" fill="#2D4320"/>
+  <path d="M128 66 C 160 106, 160 172, 128 196 C 96 172, 96 106, 128 66 Z" fill="#FAF8EF"/>
+  <path d="M128 90 L128 182" stroke="#2D4320" stroke-width="10" stroke-linecap="round"/>
+</svg>

@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { LogoMark } from "@/components/brand/logo";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -28,13 +28,7 @@ export default async function LoginPage({
     <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center text-center">
-          <Image
-            src="/tab-icon.webp"
-            alt=""
-            width={48}
-            height={48}
-            className="size-12 object-contain"
-          />
+          <LogoMark className="size-12 text-primary" />
           <h1 className="mt-4 text-xl font-semibold tracking-tight">RBMS Admin</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Sign in to manage orders, customers and books.

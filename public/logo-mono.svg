@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" role="img" aria-label="Freshly Milled Rice">
+  <path fill-rule="evenodd" d="M4 128 A124 124 0 1 1 252 128 A124 124 0 1 1 4 128 Z M128 74 C 157 110, 157 170, 128 192 C 99 170, 99 110, 128 74 Z"/>
+  <path d="M128 96 L128 178" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+  <path d="M128 74 C 128 58, 134 50, 146 46" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+  <path d="M146 46 C 139 45, 133 47, 130 53 C 137 55, 143 53, 146 46 Z"/>
+</svg>
