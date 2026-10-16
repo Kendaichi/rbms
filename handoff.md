@@ -124,6 +124,20 @@ books entries when a posted order is Cancelled (currently manual). (`/admin/sett
 
 ---
 
+## 2026-10-16 — Home-page OG / social image
+- **Branded 1200×630 OG image** generated with `next/og` at a **stable route `app/og/route.tsx` (`/og`)** —
+  forest-green card, "Freshly Milled Rice" + tagline + "NSIC Rc 160 · order by the kilo" + the grain seal.
+- Attached via **home-page metadata** in `app/(store)/page.tsx` (`openGraph.images`/`twitter.images = /og`,
+  title, description, canonical). Scoped to the home page — admin/login have no og:image.
+- **Gotcha learned:** in this Next 16.4.1 setup, route-group **index-route** segment conventions don't apply
+  — the `(store)` *layout* `metadata` export and the `opengraph-image.tsx` file convention were silently
+  ignored for `/` (page-level metadata works fine, e.g. `/contact`). So the image is a plain route handler +
+  page metadata, not the file convention. Removed the dead convention files + layout metadata.
+- `metadataBase` set in `app/layout.tsx` (default `https://rbms.daggerbuilds.com`, overridable via
+  `NEXT_PUBLIC_SITE_URL`). **Note:** `.env.local` sets `NEXT_PUBLIC_SITE_URL` to localhost for dev — **in
+  Vercel set `NEXT_PUBLIC_SITE_URL=https://rbms.daggerbuilds.com`** so the og:image/og:url are absolute to the
+  real domain. Verified on a prod server: `/` emits og:title/og:image/twitter:card; `/og` → 200 image/png.
+
 ## 2026-10-16 — Vercel Analytics (storefront only)
 - Added `@vercel/analytics` and render `<Analytics />` **only in `app/(store)/layout.tsx`** — the single mount
   point. The admin (`app/admin/layout.tsx`) and staff `/login` are outside the `(store)` group, so they never

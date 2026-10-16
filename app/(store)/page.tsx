@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Phone } from "lucide-react";
@@ -6,6 +7,33 @@ import { Grain, GrainBurst } from "@/components/store/grain";
 import { PriceCalculator } from "@/components/store/price-calculator";
 import { CONTACT } from "@/lib/contact";
 import { cn } from "@/lib/utils";
+
+const TITLE = "Freshly Milled Rice — NSIC Rc 160";
+const OG_DESC = "Milled fresh. Delivered to your barangay. Order rice by the kilo.";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description:
+    "Freshly milled NSIC Rc 160 rice, milled the day it's delivered to your barangay. Order by the kilo — pay on delivery, pickup, or utang.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Freshly Milled Rice",
+    url: "/",
+    title: TITLE,
+    description: OG_DESC,
+    locale: "en_PH",
+    images: [
+      { url: "/og", width: 1200, height: 630, alt: "Freshly Milled Rice — NSIC Rc 160" },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: OG_DESC,
+    images: ["/og"],
+  },
+};
 
 const STEPS = [
   { t: "Order by the kilo", d: "Tell us how many kilos you need — 10, 25, 50 or more. No account, no minimum fuss." },
