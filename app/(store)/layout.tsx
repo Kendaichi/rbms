@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Analytics } from "@vercel/analytics/next";
 import { buttonVariants } from "@/components/ui/button";
 import { LogoMark } from "@/components/brand/logo";
 
@@ -67,6 +68,10 @@ export default function StoreLayout({
           </p>
         </div>
       </footer>
+
+      {/* Storefront-only analytics — mounted in the (store) layout so admin and
+          staff login pages never load or send analytics. */}
+      <Analytics />
     </div>
   );
 }

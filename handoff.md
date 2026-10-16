@@ -124,6 +124,16 @@ books entries when a posted order is Cancelled (currently manual). (`/admin/sett
 
 ---
 
+## 2026-10-16 — Vercel Analytics (storefront only)
+- Added `@vercel/analytics` and render `<Analytics />` **only in `app/(store)/layout.tsx`** — the single mount
+  point. The admin (`app/admin/layout.tsx`) and staff `/login` are outside the `(store)` group, so they never
+  mount the component and never load/send analytics. Verified: exactly one `@vercel/analytics` import, in the
+  store layout; `npm run build` + eslint clean.
+- **Runtime reporting is Vercel-gated** — the script is injected client-side and only activates on a Vercel
+  deployment (local dev/`next start` is a no-op/debug, so there's no local HTTP artifact to see). **After
+  deploy:** enable **Analytics** in the Vercel project (Analytics tab); pageviews will show for `/`, `/order`,
+  `/track`, `/contact` only — no `/admin/*` or `/login`.
+
 ## 2026-10-16 — Post-M9 fixes: Realtime auth, Contact page, footer credit
 - **Realtime fix (root cause).** Admin tables are RLS staff-only, so Realtime only sends changes to an
   **authenticated** socket. The provider subscribed on mount *before* the cookie session restored → the
