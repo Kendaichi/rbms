@@ -42,6 +42,23 @@ insert into public.accounts (title, category, cash_direction, description, sort_
 ('Accounts Payable - Paid',                        'Balance Sheet',         'OUT', 'You pay that supplier later. Do not record the purchase again.', 26)
 on conflict (title) do nothing;
 
+-- Ref prefixes for auto-numbered journal entries (see migration
+-- 20261016180000_txn_auto_ref.sql). Set here too so a fresh seed is numbered.
+update public.accounts a set ref_prefix = v.p from (values
+  ('Capital', 'C'), ('Owner''s Drawing', 'OD'), ('Sales', 'S'), ('Other Income', 'OI'),
+  ('Purchases of Palay', 'PP'), ('Drying Cost', 'DC'), ('Milling/Processing Costs', 'MC'),
+  ('Packaging Costs', 'PC'), ('Transpo Costs (Hauling to Mill/Warehouse)', 'TC'),
+  ('Other Processing Charges', 'OPC'), ('Electricity Expense - Production', 'EE'),
+  ('Repairs & Maintenance - Production Equipment', 'RM'), ('Delivery and Freight-out Expense', 'DF'),
+  ('Salaries and Wages', 'SW'), ('Advertising and Promotion Expense', 'AP'),
+  ('Sales Travel and Representation', 'STR'), ('Transportation Expense - Delivery', 'TED'),
+  ('Permits and Licenses Expense', 'PL'), ('Insurance Expense', 'IE'),
+  ('Miscellaneous Expense', 'ME'), ('Taxes', 'TAX'), ('Property, Plant & Equipment', 'PPE'),
+  ('Accounts Receivable - Unpaid Sale', 'ARU'), ('Accounts Receivable - Collected', 'ARC'),
+  ('Accounts Payable - Unpaid Purchase', 'APU'), ('Accounts Payable - Paid', 'APP')
+) as v(title, p)
+where a.title = v.title;
+
 -- PPE / depreciation schedule (the two depreciated items; the ₱450 tarp is a PPE
 -- transaction but is not depreciated, matching the workbook).
 insert into public.ppe_items (name, purchase_date, cost, useful_life_years, method, salvage_pct) values

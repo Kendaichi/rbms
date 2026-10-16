@@ -32,10 +32,9 @@ export function BatchForm({
   const [f, setF] = useState({
     purchase_date: s(batch?.purchase_date, manilaToday()),
     supplier: s(batch?.supplier),
+    sacks: s(batch?.sacks),
     kg_purchased: s(batch?.kg_purchased),
     price_per_kg: s(batch?.price_per_kg),
-    milling_method: s(batch?.milling_method, "mill"),
-    milling_recovery: s(batch?.milling_recovery, "0.62"),
     drying_cost: s(batch?.drying_cost, "0"),
     milling_cost: s(batch?.milling_cost, "0"),
     transport_cost: s(batch?.transport_cost, "0"),
@@ -45,6 +44,11 @@ export function BatchForm({
   });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }));
+
+  const sacksNum = Number(f.sacks);
+  const kgNum = Number(f.kg_purchased);
+  const kgPerSack =
+    sacksNum > 0 && kgNum > 0 ? (kgNum / sacksNum).toFixed(1) : null;
 
   function submit() {
     setErrors({});
@@ -85,20 +89,18 @@ export function BatchForm({
           <Field label="Supplier">
             <Input value={f.supplier} onChange={set("supplier")} placeholder="Farmer / supplier" />
           </Field>
-          <Field label="Palay kg" error={errors.kg_purchased}>
+          <Field label="Sacks">
+            <Input type="number" min={0} step="1" value={f.sacks} onChange={set("sacks")} placeholder="e.g. 80" />
+          </Field>
+          <Field
+            label="Palay kg"
+            error={errors.kg_purchased}
+            hint={kgPerSack ? `≈ ${kgPerSack} kg per sack` : undefined}
+          >
             <Input type="number" min={0} step="0.001" value={f.kg_purchased} onChange={set("kg_purchased")} placeholder="4118" />
           </Field>
           <Field label="Price / kg (₱)" error={errors.price_per_kg}>
             <Input type="number" min={0} step="0.01" value={f.price_per_kg} onChange={set("price_per_kg")} placeholder="22" />
-          </Field>
-          <Field label="Milling method">
-            <select className={selectClass} value={f.milling_method} onChange={set("milling_method")}>
-              <option value="mill">Pay a rice mill</option>
-              <option value="own">Own mini miller</option>
-            </select>
-          </Field>
-          <Field label="Recovery (rice/palay)" error={errors.milling_recovery}>
-            <Input type="number" min={0} max={1} step="0.01" value={f.milling_recovery} onChange={set("milling_recovery")} />
           </Field>
         </div>
 
@@ -139,6 +141,13 @@ export function MillingForm({
   });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }));
+
+  const palayNum = Number(f.palay_kg_milled);
+  const riceNum = Number(f.rice_kg_produced);
+  const recovery =
+    palayNum > 0 && riceNum > 0
+      ? `${((riceNum / palayNum) * 100).toFixed(0)}%`
+      : null;
 
   function submit() {
     setErrors({});
@@ -189,7 +198,11 @@ export function MillingForm({
           <Field label="Palay milled (kg)" error={errors.palay_kg_milled}>
             <Input type="number" min={0} step="0.001" value={f.palay_kg_milled} onChange={set("palay_kg_milled")} />
           </Field>
-          <Field label="Rice produced (kg)" error={errors.rice_kg_produced}>
+          <Field
+            label="Rice produced (kg)"
+            error={errors.rice_kg_produced}
+            hint={recovery ? `Recovery: ${recovery}` : undefined}
+          >
             <Input type="number" min={0} step="0.001" value={f.rice_kg_produced} onChange={set("rice_kg_produced")} />
           </Field>
         </div>

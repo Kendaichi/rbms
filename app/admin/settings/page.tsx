@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { requirePage } from "@/lib/supabase/roles";
 import { SettingsForm, type SettingsValues } from "./settings-form";
 
 export default async function SettingsPage() {
+  await requirePage("settings");
   const supabase = await createClient();
   const { data } = await supabase
     .from("settings")

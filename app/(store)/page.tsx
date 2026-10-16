@@ -8,13 +8,14 @@ import { PriceCalculator } from "@/components/store/price-calculator";
 import { CONTACT } from "@/lib/contact";
 import { cn } from "@/lib/utils";
 
-const TITLE = "Freshly Milled Rice — NSIC Rc 160";
-const OG_DESC = "Milled fresh. Delivered to your barangay. Order rice by the kilo.";
+const TITLE = "Freshly Milled Rice — NSIC Rc 160 Jasmine Rice";
+const OG_DESC =
+  "Milled fresh. Delivered to your barangay. Order rice by the kilo.";
 
 export const metadata: Metadata = {
   title: TITLE,
   description:
-    "Freshly milled NSIC Rc 160 rice, milled the day it's delivered to your barangay. Order by the kilo — pay on delivery, pickup, or utang.",
+    "Freshly milled NSIC Rc 160 Jasmine Rice rice, milled the day it's delivered to your barangay. Order by the kilo — pay on delivery, pickup, or utang.",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -24,7 +25,12 @@ export const metadata: Metadata = {
     description: OG_DESC,
     locale: "en_PH",
     images: [
-      { url: "/og", width: 1200, height: 630, alt: "Freshly Milled Rice — NSIC Rc 160" },
+      {
+        url: "/og",
+        width: 1200,
+        height: 630,
+        alt: "Freshly Milled Rice — NSIC Rc 160 Jasmine Rice",
+      },
     ],
   },
   twitter: {
@@ -36,25 +42,56 @@ export const metadata: Metadata = {
 };
 
 const STEPS = [
-  { t: "Order by the kilo", d: "Tell us how many kilos you need — 10, 25, 50 or more. No account, no minimum fuss." },
-  { t: "Milled fresh", d: "We mill your NSIC Rc 160 palay the day it goes out, so it reaches you fragrant and new." },
-  { t: "Delivered or pickup", d: "Choose a date and time slot for delivery to your barangay, or pick it up. Pay on receipt." },
+  {
+    t: "Order by the kilo",
+    d: "Tell us how many kilos you need — 10, 25, 50 or more. No account, no minimum fuss.",
+  },
+  {
+    t: "Milled fresh",
+    d: "We mill your NSIC Rc 160 Jasmine Rice palay the day it goes out, so it reaches you fragrant and new.",
+  },
+  {
+    t: "Delivered or pickup",
+    d: "Choose a date and time slot for delivery to your barangay, or pick it up. Pay on receipt.",
+  },
 ];
 
 const FAQS = [
-  { q: "How do I pay?", a: "Cash or GCash on delivery or pickup. Regular customers can run a balance (utang) — we'll keep track." },
-  { q: "How fresh is the rice?", a: "We mill to order. Your rice is milled right before it's delivered, not pulled from months-old stock." },
-  { q: "Is there a minimum order?", a: "No strict minimum — order what your household or store needs, by the kilo." },
-  { q: "Where do you deliver?", a: "Around the barangay and nearby areas. Choose delivery at checkout and we'll confirm the schedule with you." },
+  {
+    q: "How do I pay?",
+    a: "Cash or GCash on delivery or pickup. Regular customers can run a balance (utang) — we'll keep track.",
+  },
+  {
+    q: "How fresh is the rice?",
+    a: "We mill to order. Your rice is milled right before it's delivered, not pulled from months-old stock.",
+  },
+  {
+    q: "Is there a minimum order?",
+    a: "No strict minimum — order what your household or store needs, by the kilo.",
+  },
+  {
+    q: "Where do you deliver?",
+    a: "Around the barangay and nearby areas. Choose delivery at checkout and we'll confirm the schedule with you.",
+  },
 ];
 
 export default async function StoreHome() {
   const supabase = await createClient();
   const [{ data: product }, { data: settings }] = await Promise.all([
-    supabase.from("products").select("name, price_per_kg").eq("slug", "nsic-rc-160").maybeSingle(),
-    supabase.from("settings").select("default_price_per_kg").eq("id", true).maybeSingle(),
+    supabase
+      .from("products")
+      .select("name, price_per_kg")
+      .eq("slug", "nsic-rc-160")
+      .maybeSingle(),
+    supabase
+      .from("settings")
+      .select("default_price_per_kg")
+      .eq("id", true)
+      .maybeSingle(),
   ]);
-  const price = Number(product?.price_per_kg ?? settings?.default_price_per_kg ?? 60);
+  const price = Number(
+    product?.price_per_kg ?? settings?.default_price_per_kg ?? 60
+  );
 
   return (
     <main className="flex-1">
@@ -67,8 +104,8 @@ export default async function StoreHome() {
               Milled fresh. Delivered to your barangay.
             </h1>
             <p className="mt-5 max-w-md text-lg text-primary-foreground/80 text-pretty">
-              NSIC Rc 160 rice, milled the day we bring it to you. Order any number of
-              kilos — pay on delivery, pickup, or utang.
+              NSIC Rc 160 Jasmine Rice rice, milled the day we bring it to you.
+              Order any number of kilos — pay on delivery, pickup, or utang.
             </p>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-primary-foreground/85">
               {["Freshly milled", "By the kilo", "Pay on delivery"].map((t) => (
@@ -94,7 +131,9 @@ export default async function StoreHome() {
           {STEPS.map((s) => (
             <div key={s.t}>
               <Grain className="size-7 text-brand-gold" />
-              <h3 className="mt-4 text-xl font-semibold tracking-tight">{s.t}</h3>
+              <h3 className="mt-4 text-xl font-semibold tracking-tight">
+                {s.t}
+              </h3>
               <p className="mt-2 text-muted-foreground text-pretty">{s.d}</p>
             </div>
           ))}
@@ -112,9 +151,9 @@ export default async function StoreHome() {
               Rice that hasn&rsquo;t sat in a warehouse.
             </h2>
             <p className="mt-4 text-lg text-pretty">
-              We mill NSIC Rc 160 palay to order, so your rice is fragrant and fresh —
-              not stock that&rsquo;s been bagged for months. One variety, done well, at a
-              fair price per kilo.
+              We mill NSIC Rc 160 Jasmine Rice palay to order, so your rice is
+              fragrant and fresh — not stock that&rsquo;s been bagged for
+              months. One variety, done well, at a fair price per kilo.
             </p>
           </div>
         </div>
@@ -128,8 +167,9 @@ export default async function StoreHome() {
               Supplying resellers &amp; bulk buyers.
             </h2>
             <p className="mt-4 max-w-md text-lg text-muted-foreground text-pretty">
-              Run a sari-sari store, canteen, or resell by the sack? We supply freshly
-              milled NSIC Rc 160 at reseller pricing, on a schedule that fits you.
+              Run a sari-sari store, canteen, or resell by the sack? We supply
+              freshly milled NSIC Rc 160 Jasmine Rice at reseller pricing, on a
+              schedule that fits you.
             </p>
             <ul className="mt-6 space-y-3">
               {[
@@ -145,7 +185,9 @@ export default async function StoreHome() {
             </ul>
           </div>
           <div className="rounded-2xl bg-secondary p-6 text-secondary-foreground sm:p-8">
-            <h3 className="text-lg font-semibold tracking-tight">Get a reseller quote</h3>
+            <h3 className="text-lg font-semibold tracking-tight">
+              Get a reseller quote
+            </h3>
             <p className="mt-1 text-sm text-secondary-foreground/80">
               Tell us your volume and area — we&rsquo;ll price it fast.
             </p>
@@ -155,13 +197,18 @@ export default async function StoreHome() {
             >
               <Phone className="size-5 shrink-0 text-primary" />
               <span>
-                <span className="block text-xs text-muted-foreground">Call or text</span>
+                <span className="block text-xs text-muted-foreground">
+                  Call or text
+                </span>
                 <span className="block text-lg font-semibold tabular-nums">
                   {CONTACT.phoneDisplay}
                 </span>
               </span>
             </a>
-            <Link href="/contact" className={cn(buttonVariants({ size: "lg" }), "mt-4 w-full")}>
+            <Link
+              href="/contact"
+              className={cn(buttonVariants({ size: "lg" }), "mt-4 w-full")}
+            >
               Contact us
             </Link>
           </div>
@@ -170,7 +217,9 @@ export default async function StoreHome() {
 
       {/* FAQ */}
       <section className="mx-auto w-full max-w-3xl px-6 py-16 lg:py-24">
-        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Good to know</h2>
+        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Good to know
+        </h2>
         <div className="mt-8 space-y-7">
           {FAQS.map((f) => (
             <div key={f.q}>
@@ -190,13 +239,22 @@ export default async function StoreHome() {
             </h2>
             <p className="mt-2 text-primary-foreground/80">
               Reselling or buying in bulk?{" "}
-              <Link href="/contact" className="font-medium underline underline-offset-4 hover:text-primary-foreground">
+              <Link
+                href="/contact"
+                className="font-medium underline underline-offset-4 hover:text-primary-foreground"
+              >
                 Contact us
               </Link>
               .
             </p>
           </div>
-          <Link href="/order" className={cn(buttonVariants({ size: "lg", variant: "secondary" }), "shrink-0")}>
+          <Link
+            href="/order"
+            className={cn(
+              buttonVariants({ size: "lg", variant: "secondary" }),
+              "shrink-0"
+            )}
+          >
             Order rice
           </Link>
         </div>

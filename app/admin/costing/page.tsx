@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { requirePage } from "@/lib/supabase/roles";
 import { defaultCostingInputs, type CostingInputs } from "@/lib/calc/costing";
 import { CostingCalculator } from "./costing-calculator";
 
 export default async function CostingPage() {
+  await requirePage("costing");
   const supabase = await createClient();
   const { data: s } = await supabase
     .from("settings")

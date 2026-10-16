@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Reseller & bulk supply — Freshly Milled Rice",
   description:
-    "Buy NSIC Rc 160 in bulk or resell it. Contact us to set up supply for your store.",
+    "Buy NSIC Rc 160 Jasmine Rice in bulk or resell it. Contact us to set up supply for your store.",
 };
 
 const OFFERS = [
@@ -18,7 +18,7 @@ const OFFERS = [
   },
   {
     t: "Milled to order",
-    d: "We mill NSIC Rc 160 close to delivery, so what you sell is fresh, not months-old stock.",
+    d: "We mill NSIC Rc 160 Jasmine Rice close to delivery, so what you sell is fresh, not months-old stock.",
   },
   {
     t: "Reliable, scheduled supply",
@@ -36,8 +36,9 @@ export default function ContactPage() {
         Reselling or buying in bulk?
       </h1>
       <p className="mt-3 max-w-2xl text-lg text-muted-foreground text-pretty">
-        We supply freshly milled NSIC Rc 160 to resellers, sari-sari stores and
-        bulk buyers. Tell us your volume and delivery area and we&rsquo;ll set you up.
+        We supply freshly milled NSIC Rc 160 Jasmine Rice to resellers,
+        sari-sari stores and bulk buyers. Tell us your volume and delivery area
+        and we&rsquo;ll set you up.
       </p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:gap-12">
@@ -65,7 +66,9 @@ export default function ContactPage() {
           >
             <Phone className="size-5 shrink-0 text-primary" />
             <span className="min-w-0">
-              <span className="block text-xs text-muted-foreground">Call us</span>
+              <span className="block text-xs text-muted-foreground">
+                Call us
+              </span>
               <span className="block text-lg font-semibold tabular-nums">
                 {CONTACT.phoneDisplay}
               </span>
@@ -73,7 +76,10 @@ export default function ContactPage() {
           </a>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <a href={CONTACT.phoneHref} className={buttonVariants({ size: "lg" })}>
+            <a
+              href={CONTACT.phoneHref}
+              className={buttonVariants({ size: "lg" })}
+            >
               <Phone className="size-4" />
               Call
             </a>
@@ -89,7 +95,10 @@ export default function ContactPage() {
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-secondary-foreground/15 px-4 py-3 text-sm">
             <Mail className="size-5 shrink-0 text-secondary-foreground/70" />
             {hasEmail ? (
-              <a href={`mailto:${CONTACT.email}`} className="font-medium hover:underline">
+              <a
+                href={`mailto:${CONTACT.email}`}
+                className="font-medium hover:underline"
+              >
                 {CONTACT.email}
               </a>
             ) : (
@@ -100,8 +109,8 @@ export default function ContactPage() {
           </div>
 
           <p className="mt-4 text-xs text-secondary-foreground/70">
-            Include your store/name, how many kilos, how often, and your delivery
-            area so we can quote quickly.
+            Include your store/name, how many kilos, how often, and your
+            delivery area so we can quote quickly.
           </p>
         </section>
       </div>

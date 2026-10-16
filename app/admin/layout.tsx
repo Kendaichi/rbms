@@ -15,7 +15,7 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, name")
+    .select("role, name, page_access")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile || !["owner", "staff"].includes(profile.role)) {
@@ -23,7 +23,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <AdminShell userName={profile.name ?? user.email ?? "Signed in"}>
+    <AdminShell
+      userName={profile.name ?? user.email ?? "Signed in"}
+      role={profile.role as "owner" | "staff"}
+      pageAccess={(profile.page_access as string[] | null) ?? []}
+    >
       {children}
     </AdminShell>
   );

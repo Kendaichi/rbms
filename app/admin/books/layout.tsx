@@ -1,10 +1,12 @@
+import { requirePage } from "@/lib/supabase/roles";
 import { BooksNav } from "./books-nav";
 
-export default function BooksLayout({
+export default async function BooksLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requirePage("books");
   return (
     <div className="space-y-6">
       <div>

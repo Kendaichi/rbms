@@ -68,7 +68,7 @@ export default async function JournalPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("accounts")
-      .select("id, title, category, sort_order")
+      .select("id, title, category, sort_order, ref_prefix")
       .order("sort_order", { ascending: true }),
     supabase
       .from("orders")
@@ -90,7 +90,24 @@ export default async function JournalPage() {
     id: string;
     title: string;
     category: string;
+    ref_prefix: string | null;
   }[];
+
+  // Preview the next auto ref per account (mirrors the DB trigger's next_txn_no):
+  // prefix + zero-padded (max existing numeric suffix + 1).
+  const nextRef: Record<string, string> = {};
+  for (const a of accounts) {
+    const prefix = a.ref_prefix;
+    if (!prefix) continue;
+    let max = 0;
+    for (const t of txns) {
+      const no = t.txn_no;
+      if (!no || !no.startsWith(prefix)) continue;
+      const rest = no.slice(prefix.length);
+      if (/^\d+$/.test(rest)) max = Math.max(max, parseInt(rest, 10));
+    }
+    nextRef[a.id] = `${prefix}${String(max + 1).padStart(2, "0")}`;
+  }
 
   // Which orders / batches are already posted?
   const postedOrders = new Set(
@@ -167,7 +184,7 @@ export default async function JournalPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">Add journal entry</h2>
           <div className="rounded-xl border bg-card p-4">
-            <AddEntryForm accounts={accounts} />
+            <AddEntryForm accounts={accounts} nextRef={nextRef} />
           </div>
         </div>
         <div className="space-y-6">

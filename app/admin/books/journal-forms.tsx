@@ -40,11 +40,24 @@ function Field({
   );
 }
 
-type Account = { id: string; title: string; category: string };
+type Account = {
+  id: string;
+  title: string;
+  category: string;
+  ref_prefix?: string | null;
+};
 
-export function AddEntryForm({ accounts }: { accounts: Account[] }) {
+export function AddEntryForm({
+  accounts,
+  nextRef,
+}: {
+  accounts: Account[];
+  nextRef: Record<string, string>;
+}) {
   const [state, action, pending] = useActionState(addTransaction, initial);
   const e = state.fieldErrors ?? {};
+  const [accountId, setAccountId] = useState("");
+  const preview = accountId ? nextRef[accountId] : "";
 
   // Group accounts into <optgroup> by category.
   const groups = accounts.reduce<Record<string, Account[]>>((acc, a) => {
@@ -58,12 +71,22 @@ export function AddEntryForm({ accounts }: { accounts: Account[] }) {
         <Field label="Date" error={e.txn_date}>
           <Input type="date" name="txn_date" defaultValue={todayManila()} />
         </Field>
-        <Field label="Ref / No. (optional)">
-          <Input name="txn_no" placeholder="e.g. C01, PP01" />
+        <Field label="Ref / No.">
+          <Input name="txn_no" placeholder={preview ? `Auto: ${preview}` : "Auto-assigned"} />
+          <p className="text-xs text-muted-foreground">
+            {preview
+              ? `Leave blank to auto-number: ${preview}.`
+              : "Leave blank to auto-number by account."}
+          </p>
         </Field>
       </div>
       <Field label="Account" error={e.account_id}>
-        <select name="account_id" defaultValue="" className={selectCls}>
+        <select
+          name="account_id"
+          value={accountId}
+          onChange={(ev) => setAccountId(ev.target.value)}
+          className={selectCls}
+        >
           <option value="" disabled>
             — choose an account —
           </option>

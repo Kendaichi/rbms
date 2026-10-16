@@ -68,6 +68,23 @@ supabase/
   Server Action using the server Supabase client. Only staff-authenticated sessions touch admin tables.
 - **RLS is the security boundary.** Admin tables are staff-only (`profiles.role in ('owner','staff')`);
   a logged-in customer may read only their own orders.
+- **Roles are owner/staff; access is per-user page grants.** `profiles.page_access text[]` lists the
+  pages a staff user may open; **owners implicitly have every page** (incl. the non-grantable Users page).
+  RLS uses `has_any_page(array[...])` — each admin table is gated on the pages that use it (orders↔
+  dashboard/orders/customers/deliveries/inventory/books; books tables↔books; settings writes↔settings;
+  profiles↔owner-only). The page registry `lib/admin/pages.ts` is the single source shared by the proxy
+  (path gating), nav, server guards (`requirePage`/`requireOwner`), and the Users UI — keep RLS page-sets
+  in lock-step with it. Never make Users grantable (it = full escalation). The customer role was removed;
+  new auth users default to staff with no pages, so **public sign-ups must stay disabled in Supabase** —
+  the owner creates users via `/admin/users` (needs `SUPABASE_SERVICE_ROLE_KEY`, server-only, in env).
+  The first owner is promoted once via SQL. **App code reads `page_access`, so its migration
+  (`20261016150000`) must be applied or every `/admin` request redirect-loops to `/login`.**
+- **Audit log is trigger-based and immutable.** A generic SECURITY DEFINER `audit_trigger()` on every
+  business table writes each INSERT/UPDATE/DELETE to `audit_log` (actor = `auth.uid()` + profile name,
+  before/after jsonb, changed fields). It is the real trail — don't replace it with app-level logging, and
+  don't "fix" unattributed rows: storefront-RPC and service-role writes legitimately show actor = System.
+  `audit_log` is **owner-only read, no write grants/policies** (trigger-only) — never add an update/delete
+  path to it. Add the trigger to any new table; viewer is `/admin/audit` (owner-only, not grantable).
 - **The balance sheet must actually balance.** The source workbook flags "NOT balanced — check entries";
   the app must not ship that bug. Reconcile Assets = Liabilities + Owner's Equity.
 - **Books posting is owner-confirmed and idempotent.** Auto-posting to `transactions` never fires on a
@@ -75,6 +92,10 @@ supabase/
   `rice_amount`, delivery fee → Other Income; unpaid balance → Accounts Receivable). Dedup via
   `related_order_id` / `related_batch_id`; a linked Sales/Purchases row blocks a second post. A/R is kept
   in sync by `reconcileOrderReceivable()` (`lib/books/posting.ts`), called on post and on `recordPayment`.
+- **Journal refs auto-number.** Each `accounts` row has a `ref_prefix`; a BEFORE INSERT trigger fills
+  `transactions.txn_no` = `<prefix><max numeric suffix + 1>` (e.g. `PPE04`) only when it's left blank, so a
+  supplied ref (posted sale → order_no) is preserved. Keep the `next_txn_no` preview in `books/page.tsx` in
+  lock-step with the SQL. Don't put two same-prefix rows in one multi-row insert (numbering would collide).
 - **Locale**: `en-PH`, currency **₱ (PHP)**, timezone **Asia/Manila**. `order_no` format is `ORD-###`.
 - **Order lifecycle**: `Pending → Milled → Delivered`, or `Cancelled`. Payment is manual (cash/GCash),
   unpaid balances (utang) are allowed.

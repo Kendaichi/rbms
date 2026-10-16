@@ -29,6 +29,39 @@
   while still allowing guest checkout.
 - **RLS as the security boundary.** Admin tables are staff-only (`profiles.role`); a customer reads only
   their own orders. *Why:* defense in depth beyond app-layer guards.
+- **Owner vs Staff is a real privilege split, not just a label** (2026-10-16; owner choice). Added
+  `is_owner()`; **books** (transactions/accounts/ppe_items/monthly_inventory) and **settings writes** are
+  owner-only, as is **costing** and the **Users** page; **profiles** role changes are owner-only
+  (`profiles_owner_all` + `profiles_self_read`). Staff keep operations (orders, customers, deliveries,
+  inventory). *Why:* the owner wanted helpers who run day-to-day work without reaching the financials or
+  pricing. Migration `20261016140000_owner_staff_split.sql` also **closed an escalation hole** — the old
+  `profiles_staff_all` policy let any staff set their own role to owner. Nav items are hidden for staff and
+  each owner-only route calls `requireOwner()` (defense in depth; RLS is still the real boundary). Trade-off:
+  a staff-recorded payment can't auto-reconcile A/R (books are owner-only) — accepted as best-effort.
+- **Access is per-user page grants, not fixed role capability** (2026-10-17; owner choice, supersedes the
+  owner-only lists above). `profiles.page_access text[]`; owners implicitly have all pages. RLS switched
+  from `is_owner()` to `has_any_page(array[...])` per table (migration `20261016150000_page_access.sql`).
+  Enforced in three layers off one registry (`lib/admin/pages.ts`): the **proxy** gates `/admin/*` by path
+  (works for the client-rendered pages), server guards `requirePage()`/`requireOwner()`, and nav visibility.
+  *Why:* the owner wanted to hand specific pages (even Books/Settings) to individual helpers. **Users is the
+  one non-grantable page** — granting it equals self-escalation. Staff with zero pages land on
+  `/admin/no-access` (prevents a redirect loop). **App code reads `page_access`, so if this migration is not
+  applied, every `/admin` request redirect-loops to `/login`.**
+- **Customer role removed; owner provisions users** (2026-10-17; owner choice). Roles are owner/staff only.
+  New auth users default to staff with no pages; **public sign-up must be turned off in Supabase** so the
+  only account creator is the owner's `/admin/users` "Add user" flow, which uses a **service-role client**
+  (`SUPABASE_SERVICE_ROLE_KEY`, server-only) — a deliberate, scoped reversal of the earlier "no service-role
+  key anywhere" stance (auth-user create/delete only). *Why:* the storefront is guest-based, so a customer
+  login role was dead weight, and the owner wanted to add staff directly instead of asking them to self-register.
+- **Audit log is DB-trigger based, not app-level** (2026-10-17; owner asked for a "full auditable log").
+  Migration `20261016160000_audit_log.sql`: a generic SECURITY DEFINER `audit_trigger()` on every business
+  table writes to an append-only `audit_log` (actor id + profile name, action, table, row id, old/new jsonb,
+  changed fields). *Why:* triggers capture ALL writes — server actions, the storefront RPC, the service-role
+  admin client — and can't be bypassed or forgotten the way per-action logging can. Trade-off: writes by the
+  storefront RPC and the service-role client record actor = NULL ("System"), since `auth.uid()` is null there;
+  accepted. `audit_log` is owner-only read with no write grants/policies, so the trail is immutable (only the
+  definer trigger writes). Viewer `/admin/audit` is owner-only (not grantable) — it exposes every record's
+  before/after.
 - **Money as integer centavos / `numeric`, never float; all math in `lib/calc` pure functions.**
   *Why:* the spreadsheets show float rounding drift; pure functions are unit-testable against the sheet.
 - **Resolve-and-freeze `price_per_kg` and `milling_recovery` onto each order.** *Why:* changing
@@ -52,6 +85,20 @@
   *Why:* the owner wants control over what hits the books; a silent trigger risks posting mistakes that
   are hard to unwind. Idempotency is enforced by `transactions.related_order_id` / `related_batch_id` —
   a Sales row already linked to an order (or a Purchases row to a batch) blocks a second post.
+- **Batch recovery is derived from actual milling, not planned** (2026-10-17; owner choice). Dropped
+  `palay_batches.milling_method`, `milling_recovery`, and the generated `expected_rice_kg` / `cost_per_kg_rice`
+  (migration `20261016190000`). Recovery (rice÷palay) and cost-per-kg-of-rice are now computed in the app from
+  `milling_runs` linked to the batch — overall and per batch. Added `palay_batches.sacks` (informational; the
+  owner enters sacks AND total kg, and `kg_purchased` stays the cost/price basis). *Why:* the planned 0.62 on
+  the batch confused the owner into thinking rice output was auto-estimated; real recovery only exists once
+  palay is milled. NOTE: `settings.milling_recovery` and `orders.milling_recovery` are unrelated (order
+  palay-to-mill planning) and were left intact.
+- **Journal refs auto-number by account** (2026-10-17; owner asked for automatic ref numbers "PPE#").
+  `accounts.ref_prefix` + a BEFORE INSERT trigger fill `transactions.txn_no` = `<prefix><max+1>` when blank
+  (migration `20261016180000`); a supplied value wins, so posted sales keep the order_no. *Why:* matches the
+  working-paper convention (C01, PPE01, PP01) and removes manual ref typing. Numbering is max-suffix+1, not a
+  DB sequence — simpler, single-owner safe, and tolerant of the historical mixed refs in the seed; accepted
+  that it isn't gap-free and isn't safe for concurrent same-prefix bulk inserts (no code path does that).
 - **Revenue recognised on Delivered, not at order time** (2026-10-16, M7; owner choice). Posting a
   delivered order writes a **Sales** row for the rice amount; if a delivery fee was charged it also
   writes that to **Other Income**; then Accounts Receivable is reconciled to the order's balance. *Why:*

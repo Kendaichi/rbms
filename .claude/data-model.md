@@ -13,10 +13,11 @@
 | `products` | `name`, `slug`, `unit` ('kg'), `price_per_kg`, `is_active`, `image_url` | One row now (NSIC Rc 160); table allows more (darak/hull later) |
 | `customers` | `name`, `contact_no`, `address`, `barangay`, `customer_type`, `auth_user_id?`, `notes` | Orders → Customers. `auth_user_id` links an optional account |
 | `orders` | `order_no` (ORD-###), `customer_id`, `order_date`, `fulfillment_type`, `delivery_address`, `delivery_date`, `time_slot`, `mill_by`*, `kg_ordered`, `price_per_kg`*, `delivery_fee`, `amount_paid`, `payment_status`, `status`, `milled_on`, `delivered_on`, `palay_to_mill_kg`*, `source`, `notes` | Orders → Orders. `*` = resolved-and-frozen at write time |
-| `palay_batches` | `purchase_date`, `supplier`, `kg_purchased`, `price_per_kg`, `drying_cost`, `milling_cost`, `transport_cost`, `packaging_cost`, `other_cost`, `milling_method` ('mill'\|'own'), `milling_recovery` | Cost Sheet |
-| `milling_runs` | `batch_id?`, `order_id?`, `run_date`, `palay_kg_milled`, `rice_kg_produced` | Drives palay/rice on-hand |
-| `accounts` | `title` (unique), `category`, `cash_direction` ('IN'\|'OUT'), `description` | Books → Guide (~26 titles seeded) |
-| `transactions` | `txn_date`, `txn_no`, `particulars`, `account_id`, `amount`, `ref`, `related_order_id?`, `related_batch_id?` | Books → monthly Transactions. Debit/Credit derived from the account |
+| `palay_batches` | `purchase_date`, `supplier`, `sacks?`, `kg_purchased`, `price_per_kg`, `drying_cost`, `milling_cost`, `transport_cost`, `packaging_cost`, `other_cost` | Cost Sheet. No stored recovery/method — recovery & cost-per-kg-rice are DERIVED from `milling_runs` (actual). `sacks` is informational; `kg_purchased` is the cost basis |
+| `milling_runs` | `batch_id?`, `order_id?`, `run_date`, `palay_kg_milled`, `rice_kg_produced` | Drives palay/rice on-hand AND the derived recovery (rice÷palay) |
+| `accounts` | `title` (unique), `category`, `cash_direction` ('IN'\|'OUT'), `description`, `ref_prefix` | Books → Guide (~26 titles seeded). `ref_prefix` drives auto-numbered `txn_no` |
+| `transactions` | `txn_date`, `txn_no`*, `particulars`, `account_id`, `amount`, `ref`, `related_order_id?`, `related_batch_id?` | Books → monthly Transactions. `*txn_no` auto-numbers from the account's `ref_prefix` when left blank |
+| `audit_log` | `occurred_at`, `actor_id?`, `actor_label`, `action`, `table_name`, `row_id`, `old_data`, `new_data`, `changed_fields` | Append-only trail; trigger on every table; owner-only read, immutable |
 | `ppe_items` | `name`, `purchase_date`, `cost`, `useful_life_years`, `method` ('Straight Line'), `salvage_pct` | Books → Depreciation Schedule. Monthly dep. computed, not typed |
 | `monthly_inventory` | `month`, `ending_inventory_at_cost` | Books → "Less: Ending Inventory @Cost" (manual month-end count) |
 

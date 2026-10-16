@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   // Defaults to the production domain; override with NEXT_PUBLIC_SITE_URL for
   // previews/local if needed.
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://rbms.daggerbuilds.com",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://rbms.daggerbuilds.com"
   ),
   title: "Rice Business Management System",
   description:
-    "Freshly milled rice (NSIC Rc 160) — order online for delivery or pickup.",
+    "Freshly milled rice (NSIC Rc 160 Jasmine Rice) — order online for delivery or pickup.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

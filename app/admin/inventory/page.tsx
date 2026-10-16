@@ -13,7 +13,6 @@ import { DataState } from "@/components/admin/data-state";
 import { TableSkeleton, StatRowSkeleton } from "@/components/admin/skeletons";
 import { ResponsiveTable, type Column } from "@/components/admin/responsive-table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu, MenuItem } from "@/components/ui/dropdown-menu";
 import { deleteBatch, deleteMilling } from "@/app/actions/inventory";
@@ -23,6 +22,7 @@ import { BatchForm, MillingForm } from "./inventory-forms";
 type BatchRow = Row & { id: string };
 type RunRow = Row & { id: string };
 const n = (v: unknown) => Number(v ?? 0);
+const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 export default function InventoryPage() {
   const batches = useCollection<BatchRow>("palay_batches");
@@ -39,6 +39,20 @@ export default function InventoryPage() {
     [batches.rows, runs.rows, orders.rows],
   );
 
+  // Actual palay-in / rice-out per batch, summed from its linked milling runs —
+  // the source of the derived recovery and cost-per-kg-of-rice shown per batch.
+  const byBatch = useMemo(() => {
+    const m: Record<string, { palay: number; rice: number }> = {};
+    for (const r of runs.rows) {
+      const bid = r.batch_id ? String(r.batch_id) : null;
+      if (!bid) continue;
+      const e = (m[bid] ??= { palay: 0, rice: 0 });
+      e.palay += n(r.palay_kg_milled);
+      e.rice += n(r.rice_kg_produced);
+    }
+    return m;
+  }, [runs.rows]);
+
   const batchOptions = useMemo(
     () =>
       batches.rows.map((b) => ({
@@ -51,20 +65,42 @@ export default function InventoryPage() {
   const batchCols: Column<BatchRow>[] = [
     { key: "date", header: "Date", primary: true, cell: (b) => String(b.purchase_date ?? "—") },
     { key: "supplier", header: "Supplier", cell: (b) => String(b.supplier ?? "—") },
+    {
+      key: "sacks",
+      header: "Sacks",
+      align: "right",
+      cell: (b) => (b.sacks === null || b.sacks === undefined || b.sacks === "" ? "—" : String(n(b.sacks))),
+    },
     { key: "palay", header: "Palay kg", align: "right", cell: (b) => kg(n(b.kg_purchased)) },
     { key: "price", header: "Price/kg", align: "right", cell: (b) => peso(n(b.price_per_kg)) },
-    {
-      key: "method",
-      header: "Method",
-      cell: (b) => (
-        <Badge variant="muted" className="font-normal">
-          {b.milling_method === "own" ? "Own miller" : "Rice mill"}
-        </Badge>
-      ),
-    },
     { key: "cost", header: "Batch cost", align: "right", cell: (b) => peso(n(b.total_batch_cost)) },
-    { key: "rice", header: "Exp. rice", align: "right", cell: (b) => kg(n(b.expected_rice_kg)) },
-    { key: "crice", header: "Cost/kg rice", align: "right", cell: (b) => peso(n(b.cost_per_kg_rice)) },
+    {
+      key: "rice",
+      header: "Rice milled",
+      align: "right",
+      cell: (b) => {
+        const e = byBatch[b.id];
+        return e && e.rice > 0 ? kg(e.rice) : "—";
+      },
+    },
+    {
+      key: "rec",
+      header: "Recovery",
+      align: "right",
+      cell: (b) => {
+        const e = byBatch[b.id];
+        return e && e.palay > 0 ? pct(e.rice / e.palay) : "—";
+      },
+    },
+    {
+      key: "crice",
+      header: "Cost/kg rice",
+      align: "right",
+      cell: (b) => {
+        const e = byBatch[b.id];
+        return e && e.rice > 0 ? peso(n(b.total_batch_cost) / e.rice) : "—";
+      },
+    },
   ];
 
   const runCols: Column<RunRow>[] = [
@@ -94,14 +130,15 @@ export default function InventoryPage() {
           batches.refetch();
           runs.refetch();
         }}
-        skeleton={<StatRowSkeleton count={5} />}
+        skeleton={<StatRowSkeleton count={6} />}
       >
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard label="Palay on hand" value={kg(stats.palay_on_hand)} tone="money" icon={Package} />
           <StatCard label="Rice on hand" value={kg(stats.rice_on_hand)} tone="money" icon={Wheat} />
           <StatCard label="Palay bought" value={kg(stats.palay_bought)} />
           <StatCard label="Palay milled" value={kg(stats.palay_milled)} />
           <StatCard label="Rice milled" value={kg(stats.rice_milled)} />
+          <StatCard label="Recovery" value={stats.palay_milled > 0 ? pct(stats.recovery) : "—"} />
         </div>
       </DataState>
 

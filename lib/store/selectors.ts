@@ -106,6 +106,8 @@ export function inventoryStats(batches: Row[], runs: Row[], orders: Row[]) {
     palay_on_hand: palay_bought - palay_milled,
     rice_milled,
     rice_on_hand: rice_milled - delivered_kg,
+    // Actual recovery, derived from milling runs (not a planned batch figure).
+    recovery: palay_milled > 0 ? rice_milled / palay_milled : 0,
   };
 }
 

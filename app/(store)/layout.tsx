@@ -14,7 +14,9 @@ export default function StoreLayout({
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3">
           <Link href="/" className="flex items-center gap-2.5">
             <LogoMark className="size-7" />
-            <span className="font-semibold tracking-tight">Freshly Milled Rice</span>
+            <span className="font-semibold tracking-tight">
+              Freshly Milled Rice
+            </span>
           </Link>
           <nav className="flex items-center gap-0.5 sm:gap-2">
             <Link
@@ -47,12 +49,23 @@ export default function StoreLayout({
             </p>
           </div>
           <div className="mt-6 flex flex-col gap-4 border-t border-primary-foreground/15 pt-6 text-sm text-primary-foreground/75 sm:flex-row sm:items-center sm:justify-between">
-            <p>NSIC Rc 160 · milled fresh · pay on delivery or pickup · Asia/Manila</p>
+            <p>
+              NSIC Rc 160 Jasmine Rice· milled fresh · pay on delivery or pickup
+              · Asia/Manila
+            </p>
             <div className="flex items-center gap-4">
-              <Link href="/order" className="hover:text-primary-foreground">Order</Link>
-              <Link href="/track" className="hover:text-primary-foreground">Track</Link>
-              <Link href="/contact" className="hover:text-primary-foreground">Contact</Link>
-              <Link href="/login" className="hover:text-primary-foreground">Staff login</Link>
+              <Link href="/order" className="hover:text-primary-foreground">
+                Order
+              </Link>
+              <Link href="/track" className="hover:text-primary-foreground">
+                Track
+              </Link>
+              <Link href="/contact" className="hover:text-primary-foreground">
+                Contact
+              </Link>
+              <Link href="/login" className="hover:text-primary-foreground">
+                Staff login
+              </Link>
             </div>
           </div>
           <p className="mt-4 text-xs text-primary-foreground/60">

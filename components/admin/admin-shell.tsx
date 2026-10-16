@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, KeyRound } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { AdminNav } from "./admin-nav";
 import { AdminDataProvider } from "./admin-data-provider";
@@ -15,6 +15,19 @@ function Brand() {
     <Link href="/admin/dashboard" className="flex items-center gap-2.5">
       <LogoMark className="size-7" />
       <span className="text-[0.95rem] font-semibold tracking-tight">RBMS</span>
+    </Link>
+  );
+}
+
+function ChangePasswordLink({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <Link
+      href="/admin/change-password"
+      onClick={onNavigate}
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+    >
+      <KeyRound className="size-4" />
+      Change password
     </Link>
   );
 }
@@ -38,9 +51,13 @@ function SignOutButton({ full }: { full?: boolean }) {
 
 export function AdminShell({
   userName,
+  role,
+  pageAccess,
   children,
 }: {
   userName: string;
+  role: "owner" | "staff";
+  pageAccess: string[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -66,11 +83,12 @@ export function AdminShell({
         <div className="flex h-14 items-center border-b px-4">
           <Brand />
         </div>
-        <AdminNav />
+        <AdminNav role={role} pageAccess={pageAccess} />
         <div className="border-t p-2.5">
           <p className="truncate px-3 pt-1 pb-2 text-xs text-sidebar-foreground/50">
             {userName}
           </p>
+          <ChangePasswordLink />
           <SignOutButton full />
         </div>
       </aside>
@@ -95,11 +113,16 @@ export function AdminShell({
                 <X className="size-5" />
               </button>
             </div>
-            <AdminNav onNavigate={() => setOpen(false)} />
+            <AdminNav
+              role={role}
+              pageAccess={pageAccess}
+              onNavigate={() => setOpen(false)}
+            />
             <div className="border-t p-2.5">
               <p className="truncate px-3 pt-1 pb-2 text-xs text-sidebar-foreground/50">
                 {userName}
               </p>
+              <ChangePasswordLink onNavigate={() => setOpen(false)} />
               <SignOutButton full />
             </div>
           </aside>

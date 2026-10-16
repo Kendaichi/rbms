@@ -124,6 +124,134 @@ books entries when a posted order is Cancelled (currently manual). (`/admin/sett
 
 ---
 
+## 2026-10-17 — Inventory: drop batch method/recovery, add sacks, derive recovery from milling
+
+**APPLY `20261016190000_batch_sacks_recovery.sql`.** Drops `palay_batches.milling_method`,
+`milling_recovery`, and the generated `expected_rice_kg` + `cost_per_kg_rice`; adds `sacks numeric`.
+Recovery and cost-per-kg-of-rice are no longer stored/planned — they're DERIVED from actual `milling_runs`.
+
+**App:** batch form (`inventory-forms.tsx`) loses the Milling method + Recovery fields and gains a **Sacks**
+input (with a live "≈ kg/sack" hint); `kg_purchased` stays the cost basis. The milling form now shows a live
+**Recovery %** hint as you type palay-in/rice-out. Inventory page (`inventory/page.tsx`): batch table drops
+Method/Exp.rice/old Cost-per-kg; adds **Sacks**, and **Rice milled / Recovery / Cost-per-kg-rice computed
+per batch** from its linked runs (— until milled). New **Recovery** stat card (overall rice÷palay).
+`inventoryStats` returns `recovery`. Validation/action updated (`batchSchema` drops method/recovery, adds
+optional `sacks`). Build + tsc + eslint clean.
+
+**Untouched on purpose:** `settings.milling_recovery` + `orders.milling_recovery` (order palay-to-mill
+planning) — unrelated to the batch recovery that was removed.
+
+---
+
+## 2026-10-17 — Books: auto ref numbers on journal entries
+
+**APPLY `20261016180000_txn_auto_ref.sql`.** Adds `accounts.ref_prefix` (C, PPE, PP, DC, MC, PC, …, one
+per account) and a BEFORE INSERT trigger `transactions_autoref()` that fills `transactions.txn_no` with
+`<prefix><running number>` (e.g. `PPE04`, `PP02`) when it's left blank — via `next_txn_no(prefix)` =
+prefix + lpad(max existing numeric suffix + 1). A supplied `txn_no` is kept (posted sales still use the
+order_no). So manual entries AND batch-cost posts auto-number; overlapping prefixes stay separate because
+the numeric-suffix filter excludes e.g. `PPE01` from the `PP` series. `seed.sql` sets the same prefixes
+(the migration's UPDATE runs before seed rows exist on a fresh reset, so seed must set them too).
+
+**UI:** Journal "Add entry" form (`journal-forms.tsx`) now has a controlled account select and shows a live
+**next-ref preview** (computed in `books/page.tsx`, mirroring `next_txn_no`); the Ref field is optional —
+blank = auto. Caveat: next-number is max+1 (not a gap-free sequence) and single-owner safe; two same-prefix
+rows in one multi-row insert would collide, but no code path does that (batch/sale posts use distinct
+accounts). Build + tsc + eslint clean.
+
+---
+
+## 2026-10-17 — Audit log + forced first-login password change
+
+**Audit log (APPLY `20261016160000_audit_log.sql`).** Append-only `audit_log` table + a generic
+SECURITY DEFINER `audit_trigger()` attached to all 11 business tables (orders, customers, palay_batches,
+milling_runs, transactions, accounts, ppe_items, monthly_inventory, settings, products, profiles). Each
+write records actor (`auth.uid()` + profile name), action, table, row id, old/new jsonb, and changed fields
+(ignores updated_at-only no-ops). Owner-only read; **no write grants/policies → immutable** (trigger writes
+via SECURITY DEFINER). Viewer **`/admin/audit`** (owner-only page, added to `OWNER_ONLY_PAGES`): SSR, filter
+by record type + action, native `<details>` old→new diffs. Storefront-RPC and service-role writes show
+actor = "System" (auth.uid is null there) — expected.
+
+**Forced password change (APPLY `20261016170000_must_change_password.sql`).** Owner-created users got a temp
+password but the app had **no change-password flow at all** (the Users hint was wrong). Added
+`profiles.must_change_password` (set true by `addUser`), self-scoped RPC `complete_password_change()`
+(SECURITY DEFINER so a staff user clears their OWN flag despite owner-only profile writes), `changePassword`
+action (`app/actions/auth.ts`: `auth.updateUser` + RPC), page **`/admin/change-password`** + form, and a
+voluntary "Change password" link in the admin shell (desktop + mobile). The **proxy** forces users with the
+flag to `/admin/change-password` before any other `/admin` route (exempted from page gating alongside index
+/ no-access). `getCurrentProfile` now returns `mustChangePassword`. Build + tsc + eslint clean.
+
+**Owner: apply both migrations** (plus the earlier `…150000`). Order doesn't matter between these two.
+
+---
+
+## 2026-10-17 — Per-user page access + owner-provisioned users + customer role dropped
+
+Evolves the Owner/Staff split (same day, below) per owner decisions: **grant ANY page per user**, **owner
+adds users directly**, **drop the customer role**.
+
+**APPLY migration `20261016150000_page_access.sql`** (builds on the already-applied `…140000`). Adds
+`profiles.page_access text[]`; drops customer (role check → owner/staff; existing staff back-filled with ALL
+pages so nobody is locked out; customers → staff with no pages); `handle_new_user` defaults staff + `{}`;
+`has_any_page(text[])`; and re-points every admin table's RLS at the pages that use it. **Until applied, the
+app redirect-loops `/admin ⇄ /login`** because the proxy/layout read `page_access`.
+
+**Access model (owners implicitly have every page):** single registry `lib/admin/pages.ts` drives three
+layers — the **proxy** (`lib/supabase/middleware.ts`) gates `/admin/*` by path (needed because the admin
+pages are client components), server guards `requirePage(key)`/`requireOwner()` (`lib/supabase/roles.ts`;
+books/settings/costing now use `requirePage`), and **nav** visibility (`admin-nav` takes `role` + `pageAccess`,
+threaded via `admin-shell` ← `admin/layout`). `/admin` index routes a staff to their first page; a staff with
+no pages → new **`/admin/no-access`** (loop-safe). **Users page is NOT grantable** (owner-only; granting it =
+escalation).
+
+**Add/manage users:** `app/actions/users.ts` → `addUser` / `updateUserAccess` / `deleteUser`, all owner-guarded
+(+ last-owner guard). `addUser`/`deleteUser` use a **service-role client** `lib/supabase/admin.ts`
+(`SUPABASE_SERVICE_ROLE_KEY`, server-only) since the anon client can't provision auth users. Users UI rebuilt
+(`app/admin/users/users-table.tsx`): Add-user dialog (email + temp password + role + page checkboxes),
+inline edit (role + pages), delete. `npm run build` + tsc + eslint clean.
+
+**Owner setup steps (required):** (1) apply the migration; (2) set public **sign-ups OFF** in Supabase Auth;
+(3) add `SUPABASE_SERVICE_ROLE_KEY` to the app env (Vercel + local) or Add-user returns "not configured";
+(4) make sure your own account is `owner` (`update public.profiles set role='owner' where id='<auth-user-id>';`)
+— a `staff` account with no pages lands on /admin/no-access.
+
+**Still queued (not built):** books auto ref numbers (PPE-001, SAL-001…); full auditable system log; the
+milling "expected rice" relabel (inventory already uses actual milled figures).
+
+---
+
+## 2026-10-16 — Order page as advertisement + Owner/Staff split & user management
+
+**1) Order page is now a landing/advertisement page** (`app/(store)/order/page.tsx`). Two-column layout
+(marketing left, form right; stacks on mobile): product named **"NSIC Rc 160 Jasmine Rice"** (gold eyebrow +
+headline), an explicit **"Milled on an order basis"** callout (no warehouse stock; milled after you order),
+selling points, a reseller/bulk contact line, and page SEO `metadata`. The `OrderForm` is unchanged, now in a
+card. ("Jasmine" is a marketing descriptor for the aromatic NSIC Rc 160 — flagged to owner.)
+
+**2) Owner/Staff privilege split + Users management** (was previously label-only — `owner`==`staff` in RLS).
+- **Migration `20261016140000_owner_staff_split.sql` (APPLY on Supabase).** Adds `is_owner()`. Locks
+  **books** (transactions/accounts/ppe_items/monthly_inventory) and **settings writes** to owner; tightens
+  **profiles** to `profiles_owner_all` + existing `profiles_self_read` — **closes a real escalation hole**
+  (old `profiles_staff_all` let any staff set their own role to owner). Operations tables (orders, customers,
+  palay_batches, milling_runs, products) stay staff via the untouched `is_staff()` policies.
+- **App:** `lib/supabase/roles.ts` (`getCurrentProfile`, `requireOwner`); nav hides owner-only items
+  (Costing, Books, Users, Settings) for staff (`admin-nav` now takes `role`, threaded through `admin-shell`
+  ← `admin/layout`); server guards `requireOwner()` on `books/layout`, `settings/page`, `costing/page`,
+  `users/page`. New **Users** page (`app/admin/users/`) + `setUserRole` action (`app/actions/users.ts`) —
+  owner-only, guards the last owner from demotion. Onboarding: sign up (→customer), owner promotes here.
+- **Caveat:** books tables are owner-only, so a *staff*-recorded payment won't auto-reconcile A/R
+  (`reconcileOrderReceivable` writes `transactions`). It fails silently (best-effort) — owner re-posts/reconciles.
+  Payments themselves still record (orders table is staff-writable).
+- **First owner** must still be promoted via SQL once (`update profiles set role='owner' where id=…`), then the
+  Users UI takes over. `npm run typecheck` + eslint clean.
+
+**Requested, NOT yet built (queued):** (a) milling — confirmed the existing flow already records *actual*
+palay-in/rice-out per run and rice-on-hand is actual-based (recovery only drives the batch's *estimated* rice &
+cost/kg); awaiting owner's call on relabeling the estimate. (b) auto ref numbers on books entries (PPE#, SAL#…).
+(c) full auditable system log.
+
+---
+
 ## 2026-10-16 — Home-page OG / social image
 - **Branded 1200×630 OG image** generated with `next/og` at a **stable route `app/og/route.tsx` (`/og`)** —
   forest-green card, "Freshly Milled Rice" + tagline + "NSIC Rc 160 · order by the kilo" + the grain seal.

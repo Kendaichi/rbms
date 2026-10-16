@@ -11,32 +11,47 @@ import {
   Calculator,
   BookOpen,
   Settings,
+  UserCog,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
+import { canAccessPage, type PageKey } from "@/lib/admin/pages";
 import { cn } from "@/lib/utils";
 
-const items: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/deliveries", label: "Deliveries", icon: Truck },
-  { href: "/admin/inventory", label: "Inventory", icon: Package },
-  { href: "/admin/costing", label: "Costing", icon: Calculator },
-  { href: "/admin/books", label: "Books", icon: BookOpen },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+const items: { page: PageKey; label: string; icon: LucideIcon }[] = [
+  { page: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { page: "orders", label: "Orders", icon: ClipboardList },
+  { page: "customers", label: "Customers", icon: Users },
+  { page: "deliveries", label: "Deliveries", icon: Truck },
+  { page: "inventory", label: "Inventory", icon: Package },
+  { page: "costing", label: "Costing", icon: Calculator },
+  { page: "books", label: "Books", icon: BookOpen },
+  { page: "users", label: "Users", icon: UserCog },
+  { page: "audit", label: "Audit log", icon: ScrollText },
+  { page: "settings", label: "Settings", icon: Settings },
 ];
 
-export function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
+export function AdminNav({
+  role,
+  pageAccess,
+  onNavigate,
+}: {
+  role: "owner" | "staff";
+  pageAccess: string[];
+  onNavigate?: () => void;
+}) {
   const path = usePathname();
+  const visible = items.filter((it) => canAccessPage(role, pageAccess, it.page));
   return (
     <nav className="flex flex-1 flex-col gap-0.5 p-2.5">
-      {items.map((it) => {
-        const active = path === it.href || path.startsWith(it.href + "/");
+      {visible.map((it) => {
+        const href = `/admin/${it.page}`;
+        const active = path === href || path.startsWith(href + "/");
         const Icon = it.icon;
         return (
           <Link
-            key={it.href}
-            href={it.href}
+            key={it.page}
+            href={href}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(

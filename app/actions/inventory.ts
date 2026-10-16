@@ -28,8 +28,8 @@ function revalidateInventory() {
   revalidatePath("/admin/dashboard");
 }
 
-// Create or edit a palay batch. The DB generates the derived costs
-// (total_batch_cost, expected_rice_kg, cost_per_kg_rice).
+// Create or edit a palay batch. The DB generates total_batch_cost; recovery and
+// cost-per-kg-of-rice are derived from actual milling runs, not stored here.
 export async function saveBatch(
   values: unknown,
   id?: string,
@@ -46,6 +46,7 @@ export async function saveBatch(
   const payload = {
     purchase_date: d.purchase_date,
     supplier: d.supplier || null,
+    sacks: d.sacks ?? null,
     kg_purchased: d.kg_purchased,
     price_per_kg: d.price_per_kg,
     drying_cost: d.drying_cost,
@@ -53,8 +54,6 @@ export async function saveBatch(
     transport_cost: d.transport_cost,
     packaging_cost: d.packaging_cost,
     other_cost: d.other_cost,
-    milling_method: d.milling_method,
-    milling_recovery: d.milling_recovery,
     notes: d.notes || null,
   };
   const res = id
